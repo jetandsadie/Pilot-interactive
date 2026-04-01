@@ -32,12 +32,19 @@ function nowTime() {
 }
 
 export default function App() {
+    // Read car from URL (e.g. ?car=V001)
+  const params = new URLSearchParams(window.location.search)
+  const carFromUrl = params.get('car')
   const [screen, setScreen] = useState<Screen>('home')
   const [ownerName, setOwnerName] = useState('Alex')
   const [ownerEmail, setOwnerEmail] = useState('alex@example.com')
   const [groupName, setGroupName] = useState('Blue Yaris Group')
   const [carName, setCarName] = useState('Blue Yaris')
-  const [carId, setCarId] = useState('V001')
+  const [carId, setCarId] = useState(carFromUrl || 'V001')
+    // If arriving via NFC, go straight to tap screen
+  if (carFromUrl && screen === 'home') {
+    setScreen('tap')
+  }
   const [ppuRate, setPpuRate] = useState('0.42')
   const [userName, setUserName] = useState('Sam')
   const [ownerRegistered, setOwnerRegistered] = useState(false)
