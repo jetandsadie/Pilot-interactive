@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-type Screen = 'home' | 'onboarding' | 'owner' | 'tap' | 'trip'
+type Screen = 'home' | 'onboarding' | 'owner' | 'tap' | 'trip' | 'ended'
 
 type SavedEvent = {
   id: string
@@ -64,14 +64,14 @@ export default function App() {
   }
 
   function endTrip() {
-    const time = nowTime()
-    setTripStarted(false)
-    setSavedEvents((current) => [
-      { id: crypto.randomUUID(), type: 'trip_ended', user: userName, carId, time },
-      ...current,
-    ])
-    setScreen('tap')
-  }
+  const time = nowTime()
+  setTripStarted(false)
+  setSavedEvents((current) => [
+    { id: crypto.randomUUID(), type: 'trip_ended', user: userName, carId, time },
+    ...current,
+  ])
+  setScreen('ended')
+}
 
   return (
     <div className="app-shell">
@@ -89,12 +89,13 @@ export default function App() {
         </header>
 
         <div className="steps">
-          <Step label="1. Intro" active={screen === 'home'} />
-          <Step label="2. Owner onboarding" active={screen === 'onboarding'} />
-          <Step label="3. Car & tag setup" active={screen === 'owner'} />
-          <Step label="4. Tap flow" active={screen === 'tap'} />
-          <Step label="5. Trip in progress" active={screen === 'trip'} />
-        </div>
+  <Step label="1. Intro" active={screen === 'home'} />
+  <Step label="2. Owner onboarding" active={screen === 'onboarding'} />
+  <Step label="3. Car & tag setup" active={screen === 'owner'} />
+  <Step label="4. Tap flow" active={screen === 'tap'} />
+  <Step label="5. Trip in progress" active={screen === 'trip'} />
+  <Step label="6. Trip ended" active={screen === 'ended'} />
+</div>
 
         {screen === 'home' && (
           <div className="grid grid--main">
@@ -326,6 +327,64 @@ export default function App() {
                 <button className="button" onClick={endTrip}>Tap out to end trip</button>
                 <button className="button button--secondary" onClick={() => setScreen('tap')}>
                   Back
+                </button>
+              </div>
+            </Card>
+
+            <Card>
+              <h2>Saved events</h2>
+              {savedEvents.length === 0 ? (
+                <p className="muted">No events saved yet.</p>
+              ) : (
+                <div className="event-list">
+                  {savedEvents.map((event) => (
+                    <div className="event-item" key={event.id}>
+                      <strong>{event.type}</strong>
+                      <div>{event.user}</div>
+                      <div>{event.carId}</div>
+                      <div>{event.time}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+      
+                )}
+
+        {screen === 'ended' && (
+          <div className="grid grid--main">
+            <Card>
+              <h2>Trip ended</h2>
+              <p className="muted">A clear end state for the completed trip.</p>
+
+              <div className="success-box">
+                <h3>Trip ended successfully</h3>
+                <p>Thanks, {userName}. Your trip in {carName} has been recorded.</p>
+                <p>Estimated trip cost: £{tripCost}</p>
+              </div>
+
+              <div className="grid grid--three">
+                <div className="stat">
+                  <div className="stat__label">User</div>
+                  <div className="stat__value">{userName}</div>
+                </div>
+                <div className="stat">
+                  <div className="stat__label">Duration</div>
+                  <div className="stat__value">{tripMinutes} mins</div>
+                </div>
+                <div className="stat">
+                  <div className="stat__label">Estimated cost</div>
+                  <div className="stat__value">£{tripCost}</div>
+                </div>
+              </div>
+
+              <div className="button-row">
+                <button className="button" onClick={() => setScreen('tap')}>
+                  Start another trip
+                </button>
+                <button className="button button--secondary" onClick={() => setScreen('home')}>
+                  Return home
                 </button>
               </div>
             </Card>
