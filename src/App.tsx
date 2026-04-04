@@ -264,7 +264,6 @@ useEffect(() => {
           <div className="grid grid--main">
             <Card>
               <h2>Tap in / tap out</h2>
-              <p className="muted">This simulates the page opened by tapping the NFC tag.</p>
 
               <label className="field">
                 <span>Who's using the car?</span>
