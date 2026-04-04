@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 type Screen = 'home' | 'onboarding' | 'owner' | 'tap' | 'trip' | 'ended'
 
@@ -46,13 +46,20 @@ export default function App() {
     setScreen('tap')
   }
   const [ppuRate, setPpuRate] = useState('0.42')
-  const [userName, setUserName] = useState('Sam')
+ const [userName, setUserName] = useState('')
   const [ownerRegistered, setOwnerRegistered] = useState(false)
   const [tagReady, setTagReady] = useState(false)
   const [tripStarted, setTripStarted] = useState(false)
   const [tripStartTime, setTripStartTime] = useState<string | null>(null)
   const [tripMinutes, setTripMinutes] = useState(35)
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
+
+useEffect(() => {
+  const savedName = localStorage.getItem('tg_user_name')
+  if (savedName) {
+    setUserName(savedName)
+  }
+}, [])
 
   const tripCost = useMemo(() => {
     const rate = Number(ppuRate || 0)
@@ -67,7 +74,8 @@ export default function App() {
       { id: crypto.randomUUID(), type: 'trip_started', user: userName, carId, time },
       ...current,
     ])
-    setScreen('trip')
+        localStorage.setItem('tg_user_name', userName)
+          setScreen('trip')
   }
 
   function endTrip() {
@@ -259,7 +267,7 @@ export default function App() {
               <p className="muted">This simulates the page opened by tapping the NFC tag.</p>
 
               <label className="field">
-                <span>Person using the car</span>
+                <span>Who's using the car?</span>
                 <input value={userName} onChange={(e) => setUserName(e.target.value)} />
               </label>
 
@@ -269,7 +277,9 @@ export default function App() {
                 <p>Agreed PPU rate: £{ppuRate} per minute</p>
                 <div className="button-row button-row--center">
                   {!tripStarted ? (
-                    <button className="button" onClick={startTrip}>Tap in and start trip</button>
+                    <button className="button" onClick={startTrip} disabled={!userName.trim()}>
+  Start trip
+</button>
                   ) : (
                     <button className="button" onClick={endTrip}>Tap out and end trip</button>
                   )}
