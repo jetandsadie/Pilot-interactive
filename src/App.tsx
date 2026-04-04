@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 type Screen = 'home' | 'onboarding' | 'owner' | 'tap' | 'trip' | 'ended'
 
@@ -10,8 +10,12 @@ type SavedEvent = {
   time: string
 }
 
-function Step({ label, active }: { label: string; active: boolean }) {
-  return <div className={active ? 'step step--active' : 'step'}>{label}</div>
+type ActiveTrip = {
+  user: string
+  carId: string
+  carName: string
+  ppuRate: string
+  startTime: string
 }
 
 function Card({ children }: { children: React.ReactNode }) {
@@ -36,34 +40,115 @@ export default function App() {
   const carFromUrl = params.get('car')
 
   const [screen, setScreen] = useState<Screen>(carFromUrl ? 'tap' : 'home')
+
   const [ownerName, setOwnerName] = useState('Alex')
   const [ownerEmail, setOwnerEmail] = useState('alex@example.com')
   const [groupName, setGroupName] = useState('Blue Yaris Group')
+
   const [carName, setCarName] = useState('Blue Yaris')
   const [carId, setCarId] = useState(carFromUrl || 'V001')
   const [ppuRate, setPpuRate] = useState('0.42')
+
   const [userName, setUserName] = useState('')
   const [ownerRegistered, setOwnerRegistered] = useState(false)
   const [tagReady, setTagReady] = useState(false)
+
   const [tripStarted, setTripStarted] = useState(false)
   const [tripStartTime, setTripStartTime] = useState<string | null>(null)
   const [tripMinutes, setTripMinutes] = useState(35)
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
 
-  useEffect(() => {
-    const savedName = localStorage.getItem('tg_user_name')
-    if (savedName) {
-      setUserName(savedName)
-    }
-  }, [])
+  const autoHandledRef = useRef(false)
 
   const tripCost = useMemo(() => {
     const rate = Number(ppuRate || 0)
     return (tripMinutes * rate).toFixed(2)
   }, [tripMinutes, ppuRate])
 
+  useEffect(() => {
+    const savedName = localStorage.getItem('tg_user_name')
+    if (savedName) {
+      setUserName(savedName)
+    }
+
+    const savedTrip = localStorage.getItem('tg_active_trip')
+    if (savedTrip) {
+      try {
+        const trip: ActiveTrip = JSON.parse(savedTrip)
+        setTripStarted(true)
+        setTripStartTime(trip.startTime)
+        setCarId(trip.carId)
+        setCarName(trip.carName)
+        setPpuRate(trip.ppuRate)
+      } catch {
+        localStorage.removeItem('tg_active_trip')
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!carFromUrl) return
+    if (!userName.trim()) return
+    if (autoHandledRef.current) return
+
+    autoHandledRef.current = true
+
+    const savedTrip = localStorage.getItem('tg_active_trip')
+
+    if (savedTrip) {
+      try {
+        const trip: ActiveTrip = JSON.parse(savedTrip)
+
+        if (trip.carId === carFromUrl && trip.user === userName) {
+          const time = nowTime()
+          setTripStarted(false)
+          setTripStartTime(trip.startTime)
+          setCarId(trip.carId)
+          setCarName(trip.carName)
+          setPpuRate(trip.ppuRate)
+          setSavedEvents((current) => [
+            { id: crypto.randomUUID(), type: 'trip_ended', user: userName, carId: trip.carId, time },
+            ...current,
+          ])
+          localStorage.removeItem('tg_active_trip')
+          setScreen('ended')
+          return
+        }
+      } catch {
+        localStorage.removeItem('tg_active_trip')
+      }
+    }
+
+    const time = nowTime()
+    const newTrip: ActiveTrip = {
+      user: userName,
+      carId: carFromUrl,
+      carName,
+      ppuRate,
+      startTime: time,
+    }
+
+    setTripStarted(true)
+    setTripStartTime(time)
+    setCarId(carFromUrl)
+    setSavedEvents((current) => [
+      { id: crypto.randomUUID(), type: 'trip_started', user: userName, carId: carFromUrl, time },
+      ...current,
+    ])
+    localStorage.setItem('tg_active_trip', JSON.stringify(newTrip))
+    setScreen('trip')
+  }, [carFromUrl, userName, carName, ppuRate])
+
   function startTrip() {
     const time = nowTime()
+    const newTrip: ActiveTrip = {
+      user: userName,
+      carId,
+      carName,
+      ppuRate,
+      startTime: time,
+    }
+
     setTripStarted(true)
     setTripStartTime(time)
     setSavedEvents((current) => [
@@ -71,6 +156,7 @@ export default function App() {
       ...current,
     ])
     localStorage.setItem('tg_user_name', userName)
+    localStorage.setItem('tg_active_trip', JSON.stringify(newTrip))
     setScreen('trip')
   }
 
@@ -81,6 +167,7 @@ export default function App() {
       { id: crypto.randomUUID(), type: 'trip_ended', user: userName, carId, time },
       ...current,
     ])
+    localStorage.removeItem('tg_active_trip')
     setScreen('ended')
   }
 
@@ -88,56 +175,19 @@ export default function App() {
     <div className="app-shell">
       <div className="container">
         <header className="hero">
-          <div className="badge-row">
-            <span className="badge">Pilot prototype</span>
-            <span className="badge badge--muted">Owner + passengers first</span>
-          </div>
-          <h1>Carshare</h1>
-          <p>Share trip cost</p>
+          <h1>Share trip cost</h1>
         </header>
-
-        <div className="steps">
-          <Step label="1. Intro" active={screen === 'home'} />
-          <Step label="2. Owner onboarding" active={screen === 'onboarding'} />
-          <Step label="3. Car & tag setup" active={screen === 'owner'} />
-          <Step label="4. Tap flow" active={screen === 'tap'} />
-          <Step label="5. Trip in progress" active={screen === 'trip'} />
-          <Step label="6. Trip ended" active={screen === 'ended'} />
-        </div>
 
         {screen === 'home' && (
           <div className="grid grid--main">
             <Card>
-              <h2>What this first version does</h2>
-              <p className="muted">
-                It gives a car owner something concrete to try with friends, family, or regular
-                passengers.
-              </p>
-              <div className="feature-list">
-                <div className="feature-box">
-                  <h3>Owner receives NFC tag</h3>
-                  <p>The tag is linked to a car page and can be tested straight away.</p>
-                </div>
-                <div className="feature-box">
-                  <h3>Tap in / tap out</h3>
-                  <p>Passengers or the owner tap with a phone to start and end a trip.</p>
-                </div>
-                <div className="feature-box">
-                  <h3>Cost tracking</h3>
-                  <p>The prototype calculates a simple usage cost from the agreed PPU rate.</p>
-                </div>
-              </div>
-              <button className="button" onClick={() => setScreen('onboarding')}>
-                Start building the first owner journey
-              </button>
-            </Card>
+              <h2>Owner onboarding</h2>
+              <p className="muted">Set up a car and tag for trip sharing.</p>
 
-            <Card>
-              <h2>Why this version is useful</h2>
-              <div className="stats">
-                <Stat label="Pilot focus" value="Try the system safely" />
-                <Stat label="Social risk" value="Low" />
-                <Stat label="Core test" value="Does tap flow feel natural?" />
+              <div className="button-row">
+                <button className="button" onClick={() => setScreen('onboarding')}>
+                  Start
+                </button>
               </div>
             </Card>
           </div>
@@ -147,7 +197,6 @@ export default function App() {
           <div className="grid grid--main">
             <Card>
               <h2>Owner onboarding</h2>
-              <p className="muted">A simple form for the owner joining the pilot.</p>
 
               <label className="field">
                 <span>Owner name</span>
@@ -164,11 +213,6 @@ export default function App() {
                 <input value={groupName} onChange={(e) => setGroupName(e.target.value)} />
               </label>
 
-              <div className="note">
-                The owner can first use the system with passengers, partners, or friends before
-                inviting other drivers.
-              </div>
-
               <div className="button-row">
                 <button
                   className="button"
@@ -184,15 +228,6 @@ export default function App() {
                 </button>
               </div>
             </Card>
-
-            <Card>
-              <h2>Prototype notes</h2>
-              <ul className="bullets">
-                <li>This version focuses on owner confidence first.</li>
-                <li>Later versions can extend from passengers to other drivers.</li>
-                <li>This can later connect to WordPress and Supabase.</li>
-              </ul>
-            </Card>
           </div>
         )}
 
@@ -200,9 +235,6 @@ export default function App() {
           <div className="grid grid--main">
             <Card>
               <h2>Car and tag setup</h2>
-              <p className="muted">
-                Simulate the setup after the owner receives the NFC tag in the post.
-              </p>
 
               <label className="field">
                 <span>Car name</span>
@@ -221,12 +253,11 @@ export default function App() {
               </div>
 
               <div className="tag-box">
-                <h3>NFC tag pack</h3>
+                <h3>NFC tag</h3>
                 <div className="button-row">
                   <button className="button" onClick={() => setTagReady(true)}>
                     {tagReady ? 'Tag activated' : 'Activate tag'}
                   </button>
-                  {tagReady && <span className="badge">Ready to test</span>}
                 </div>
               </div>
 
@@ -243,15 +274,6 @@ export default function App() {
                 </button>
               </div>
             </Card>
-
-            <Card>
-              <h2>What the owner experiences</h2>
-              <ul className="bullets">
-                <li>Receives something physical in the post.</li>
-                <li>Can test it with a familiar passenger before changing anything bigger.</li>
-                <li>Starts to see how shared use and charging could work in practice.</li>
-              </ul>
-            </Card>
           </div>
         )}
 
@@ -259,20 +281,17 @@ export default function App() {
           <div className="grid grid--main">
             <Card>
               <h2>{carName}</h2>
+              <p>£{ppuRate} per minute</p>
 
               <label className="field">
                 <span>Who’s sharing the trip?</span>
                 <input value={userName} onChange={(e) => setUserName(e.target.value)} />
               </label>
 
-              <div className="tap-box">
-                <p>Car ID: {carId}</p>
-                <p>£{ppuRate} per minute</p>
-                <div className="button-row button-row--center">
-                  <button className="button" onClick={startTrip} disabled={!userName.trim()}>
-                    Start trip
-                  </button>
-                </div>
+              <div className="button-row button-row--center">
+                <button className="button" onClick={startTrip} disabled={!userName.trim()}>
+                  Start trip
+                </button>
               </div>
 
               <div className="button-row">
@@ -281,42 +300,28 @@ export default function App() {
                 </button>
               </div>
             </Card>
-
-            <Card>
-              <h2>Trip sharing</h2>
-              <p className="muted">Enter a name and start the trip.</p>
-            </Card>
           </div>
         )}
 
         {screen === 'trip' && (
           <div className="grid grid--main">
             <Card>
-              <h2>Trip in progress</h2>
+              <h2>{carName}</h2>
+              <p>Trip in progress</p>
 
               <div className="success-box">
                 <h3>Trip started</h3>
-                <p>{userName} is sharing {carName}.</p>
+                <p>{userName} is sharing this trip.</p>
                 <p>Started at {tripStartTime}</p>
               </div>
 
               <div className="grid grid--three">
+                <Stat label="User" value={userName} />
                 <div className="stat">
-                  <div className="stat__label">User</div>
-                  <div className="stat__value">{userName}</div>
+                  <div className="stat__label">Duration</div>
+                  <div className="stat__value">{tripMinutes} mins</div>
                 </div>
-                <label className="field stat">
-                  <span className="stat__label">Demo duration</span>
-                  <input
-                    type="number"
-                    value={tripMinutes}
-                    onChange={(e) => setTripMinutes(Number(e.target.value) || 0)}
-                  />
-                </label>
-                <div className="stat">
-                  <div className="stat__label">Estimated cost</div>
-                  <div className="stat__value">£{tripCost}</div>
-                </div>
+                <Stat label="Estimated cost" value={`£${tripCost}`} />
               </div>
 
               <div className="button-row">
@@ -325,51 +330,28 @@ export default function App() {
                 </button>
               </div>
             </Card>
-
-            <Card>
-              <h2>Saved events</h2>
-              {savedEvents.length === 0 ? (
-                <p className="muted">No events saved yet.</p>
-              ) : (
-                <div className="event-list">
-                  {savedEvents.map((event) => (
-                    <div className="event-item" key={event.id}>
-                      <strong>{event.type}</strong>
-                      <div>{event.user}</div>
-                      <div>{event.carId}</div>
-                      <div>{event.time}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
           </div>
         )}
 
         {screen === 'ended' && (
           <div className="grid grid--main">
             <Card>
-              <h2>Trip ended</h2>
+              <h2>{carName}</h2>
+              <p>Trip ended</p>
 
               <div className="success-box">
-                <h3>Trip ended successfully</h3>
-                <p>Thanks, {userName}. Your trip in {carName} has been recorded.</p>
+                <h3>Trip ended</h3>
+                <p>Thanks, {userName}.</p>
                 <p>Estimated trip cost: £{tripCost}</p>
               </div>
 
               <div className="grid grid--three">
-                <div className="stat">
-                  <div className="stat__label">User</div>
-                  <div className="stat__value">{userName}</div>
-                </div>
+                <Stat label="User" value={userName} />
                 <div className="stat">
                   <div className="stat__label">Duration</div>
                   <div className="stat__value">{tripMinutes} mins</div>
                 </div>
-                <div className="stat">
-                  <div className="stat__label">Estimated cost</div>
-                  <div className="stat__value">£{tripCost}</div>
-                </div>
+                <Stat label="Estimated cost" value={`£${tripCost}`} />
               </div>
 
               <div className="button-row">
@@ -380,24 +362,6 @@ export default function App() {
                   Return home
                 </button>
               </div>
-            </Card>
-
-            <Card>
-              <h2>Saved events</h2>
-              {savedEvents.length === 0 ? (
-                <p className="muted">No events saved yet.</p>
-              ) : (
-                <div className="event-list">
-                  {savedEvents.map((event) => (
-                    <div className="event-item" key={event.id}>
-                      <strong>{event.type}</strong>
-                      <div>{event.user}</div>
-                      <div>{event.carId}</div>
-                      <div>{event.time}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </Card>
           </div>
         )}
