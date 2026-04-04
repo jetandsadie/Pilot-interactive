@@ -326,8 +326,8 @@ export default function App() {
 
               <div className="button-row">
                 <button className="button" onClick={endTrip}>
-                  End trip
-                </button>
+  Tap again to end trip
+</button>
               </div>
             </Card>
           </div>
@@ -346,13 +346,8 @@ export default function App() {
               </div>
 
               <div className="grid grid--three">
-                <Stat label="User" value={userName} />
-                <div className="stat">
-                  <div className="stat__label">Duration</div>
-                  <div className="stat__value">{tripMinutes} mins</div>
-                </div>
-                <Stat label="Estimated cost" value={`£${tripCost}`} />
-              </div>
+  <Stat label="User" value={userName} />
+</div>
 
               <div className="button-row">
                 <button className="button" onClick={() => setScreen('tap')}>
