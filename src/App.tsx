@@ -32,21 +32,17 @@ function nowTime() {
 }
 
 export default function App() {
-    // Read car from URL (e.g. ?car=V001)
   const params = new URLSearchParams(window.location.search)
   const carFromUrl = params.get('car')
-  const [screen, setScreen] = useState<Screen>('home')
+
+  const [screen, setScreen] = useState<Screen>(carFromUrl ? 'tap' : 'home')
   const [ownerName, setOwnerName] = useState('Alex')
   const [ownerEmail, setOwnerEmail] = useState('alex@example.com')
   const [groupName, setGroupName] = useState('Blue Yaris Group')
   const [carName, setCarName] = useState('Blue Yaris')
   const [carId, setCarId] = useState(carFromUrl || 'V001')
-    // If arriving via NFC, go straight to tap screen
-  if (carFromUrl && screen === 'home') {
-    setScreen('tap')
-  }
   const [ppuRate, setPpuRate] = useState('0.42')
- const [userName, setUserName] = useState('')
+  const [userName, setUserName] = useState('')
   const [ownerRegistered, setOwnerRegistered] = useState(false)
   const [tagReady, setTagReady] = useState(false)
   const [tripStarted, setTripStarted] = useState(false)
@@ -54,12 +50,12 @@ export default function App() {
   const [tripMinutes, setTripMinutes] = useState(35)
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
 
-useEffect(() => {
-  const savedName = localStorage.getItem('tg_user_name')
-  if (savedName) {
-    setUserName(savedName)
-  }
-}, [])
+  useEffect(() => {
+    const savedName = localStorage.getItem('tg_user_name')
+    if (savedName) {
+      setUserName(savedName)
+    }
+  }, [])
 
   const tripCost = useMemo(() => {
     const rate = Number(ppuRate || 0)
@@ -74,19 +70,19 @@ useEffect(() => {
       { id: crypto.randomUUID(), type: 'trip_started', user: userName, carId, time },
       ...current,
     ])
-        localStorage.setItem('tg_user_name', userName)
-          setScreen('trip')
+    localStorage.setItem('tg_user_name', userName)
+    setScreen('trip')
   }
 
   function endTrip() {
-  const time = nowTime()
-  setTripStarted(false)
-  setSavedEvents((current) => [
-    { id: crypto.randomUUID(), type: 'trip_ended', user: userName, carId, time },
-    ...current,
-  ])
-  setScreen('ended')
-}
+    const time = nowTime()
+    setTripStarted(false)
+    setSavedEvents((current) => [
+      { id: crypto.randomUUID(), type: 'trip_ended', user: userName, carId, time },
+      ...current,
+    ])
+    setScreen('ended')
+  }
 
   return (
     <div className="app-shell">
@@ -97,19 +93,17 @@ useEffect(() => {
             <span className="badge badge--muted">Owner + passengers first</span>
           </div>
           <h1>Carshare</h1>
-          <p>
-            Share trip cost
-          </p>
+          <p>Share trip cost</p>
         </header>
 
         <div className="steps">
-  <Step label="1. Intro" active={screen === 'home'} />
-  <Step label="2. Owner onboarding" active={screen === 'onboarding'} />
-  <Step label="3. Car & tag setup" active={screen === 'owner'} />
-  <Step label="4. Tap flow" active={screen === 'tap'} />
-  <Step label="5. Trip in progress" active={screen === 'trip'} />
-  <Step label="6. Trip ended" active={screen === 'ended'} />
-</div>
+          <Step label="1. Intro" active={screen === 'home'} />
+          <Step label="2. Owner onboarding" active={screen === 'onboarding'} />
+          <Step label="3. Car & tag setup" active={screen === 'owner'} />
+          <Step label="4. Tap flow" active={screen === 'tap'} />
+          <Step label="5. Trip in progress" active={screen === 'trip'} />
+          <Step label="6. Trip ended" active={screen === 'ended'} />
+        </div>
 
         {screen === 'home' && (
           <div className="grid grid--main">
@@ -206,7 +200,9 @@ useEffect(() => {
           <div className="grid grid--main">
             <Card>
               <h2>Car and tag setup</h2>
-              <p className="muted">Simulate the setup after the owner receives the NFC tag in the post.</p>
+              <p className="muted">
+                Simulate the setup after the owner receives the NFC tag in the post.
+              </p>
 
               <label className="field">
                 <span>Car name</span>
@@ -235,7 +231,11 @@ useEffect(() => {
               </div>
 
               <div className="button-row">
-                <button className="button" disabled={!ownerRegistered || !tagReady} onClick={() => setScreen('tap')}>
+                <button
+                  className="button"
+                  disabled={!ownerRegistered || !tagReady}
+                  onClick={() => setScreen('tap')}
+                >
                   Open tap flow
                 </button>
                 <button className="button button--secondary" onClick={() => setScreen('onboarding')}>
@@ -244,34 +244,35 @@ useEffect(() => {
               </div>
             </Card>
 
-                    {screen === 'tap' && (
+            <Card>
+              <h2>What the owner experiences</h2>
+              <ul className="bullets">
+                <li>Receives something physical in the post.</li>
+                <li>Can test it with a familiar passenger before changing anything bigger.</li>
+                <li>Starts to see how shared use and charging could work in practice.</li>
+              </ul>
+            </Card>
+          </div>
+        )}
+
+        {screen === 'tap' && (
           <div className="grid grid--main">
             <Card>
-              <h2>Tap in / tap out</h2>
+              <h2>{carName}</h2>
 
               <label className="field">
-                <span>Who's sharing the trip?</span>
+                <span>Who’s sharing the trip?</span>
                 <input value={userName} onChange={(e) => setUserName(e.target.value)} />
               </label>
 
               <div className="tap-box">
-                <h3>{carName}</h3>
                 <p>Car ID: {carId}</p>
-                <p>Agreed PPU rate: £{ppuRate} per minute</p>
+                <p>£{ppuRate} per minute</p>
                 <div className="button-row button-row--center">
-                  {!tripStarted ? (
-                    <button className="button" onClick={startTrip} disabled={!userName.trim()}>
-  Start trip
-</button>
-                  ) : (
-                    <button className="button" onClick={endTrip}>Tap out and end trip</button>
-                  )}
+                  <button className="button" onClick={startTrip} disabled={!userName.trim()}>
+                    Start trip
+                  </button>
                 </div>
-              </div>
-
-              <div className="note">
-                In the live build, the NFC tag would open a unique URL for this car. The user would
-                already be signed in.
               </div>
 
               <div className="button-row">
@@ -282,12 +283,8 @@ useEffect(() => {
             </Card>
 
             <Card>
-              <h2>Simple pilot logic</h2>
-              <ul className="bullets">
-                <li>Tap identifies car.</li>
-                <li>Start / stop event is recorded.</li>
-                <li>Usage can later feed billing.</li>
-              </ul>
+              <h2>Trip sharing</h2>
+              <p className="muted">Enter a name and start the trip.</p>
             </Card>
           </div>
         )}
@@ -296,11 +293,10 @@ useEffect(() => {
           <div className="grid grid--main">
             <Card>
               <h2>Trip in progress</h2>
-              <p className="muted">A simple success state showing that the tap flow has worked.</p>
 
               <div className="success-box">
-                <h3>Trip started successfully</h3>
-                <p>Welcome, {userName}. Your trip in {carName} has started.</p>
+                <h3>Trip started</h3>
+                <p>{userName} is sharing {carName}.</p>
                 <p>Started at {tripStartTime}</p>
               </div>
 
@@ -324,9 +320,8 @@ useEffect(() => {
               </div>
 
               <div className="button-row">
-                <button className="button" onClick={endTrip}>Tap out to end trip</button>
-                <button className="button button--secondary" onClick={() => setScreen('tap')}>
-                  Back
+                <button className="button" onClick={endTrip}>
+                  End trip
                 </button>
               </div>
             </Card>
@@ -349,14 +344,12 @@ useEffect(() => {
               )}
             </Card>
           </div>
-      
-                )}
+        )}
 
         {screen === 'ended' && (
           <div className="grid grid--main">
             <Card>
               <h2>Trip ended</h2>
-              <p className="muted">A clear end state for the completed trip.</p>
 
               <div className="success-box">
                 <h3>Trip ended successfully</h3>
