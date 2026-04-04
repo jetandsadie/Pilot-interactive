@@ -96,10 +96,9 @@ useEffect(() => {
             <span className="badge">Pilot prototype</span>
             <span className="badge badge--muted">Owner + passengers first</span>
           </div>
-          <h1>Transport Groups — first version</h1>
+          <h1>Carshare</h1>
           <p>
-            A small mobile web prototype for the early pilot: owner onboarding, NFC tag setup, and
-            passenger tap in / tap out.
+            Share trip cost
           </p>
         </header>
 
@@ -227,10 +226,6 @@ useEffect(() => {
 
               <div className="tag-box">
                 <h3>NFC tag pack</h3>
-                <p>
-                  Owner receives a tag labelled for {carName}. They place it in the car and test the
-                  flow.
-                </p>
                 <div className="button-row">
                   <button className="button" onClick={() => setTagReady(true)}>
                     {tagReady ? 'Tag activated' : 'Activate tag'}
@@ -249,24 +244,13 @@ useEffect(() => {
               </div>
             </Card>
 
-            <Card>
-              <h2>What the owner experiences</h2>
-              <ul className="bullets">
-                <li>Receives something physical in the post.</li>
-                <li>Can test it with a familiar passenger before changing anything bigger.</li>
-                <li>Starts to see how shared use and charging could work in practice.</li>
-              </ul>
-            </Card>
-          </div>
-        )}
-
-        {screen === 'tap' && (
+                    {screen === 'tap' && (
           <div className="grid grid--main">
             <Card>
               <h2>Tap in / tap out</h2>
 
               <label className="field">
-                <span>Who's using the car?</span>
+                <span>Who's sharing the trip?</span>
                 <input value={userName} onChange={(e) => setUserName(e.target.value)} />
               </label>
 
