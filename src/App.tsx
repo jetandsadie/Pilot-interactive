@@ -343,7 +343,15 @@ export default function App() {
               <div className="grid grid--three">
   <Stat label="User" value={userName} />
 </div>
- 
+ <h3>Who has used this</h3>
+
+<div className="event-list">
+  {savedEvents.map((event) => (
+    <div className="event-item" key={event.id}>
+      {event.user}
+    </div>
+  ))}
+</div>
               <div className="button-row">
                 <button className="button" onClick={() => setScreen('tap')}>
                   Start another trip
