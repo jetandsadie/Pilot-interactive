@@ -343,7 +343,7 @@ export default function App() {
               <div className="grid grid--three">
   <Stat label="User" value={userName} />
 </div>
-
+ 
               <div className="button-row">
                 <button className="button" onClick={() => setScreen('tap')}>
                   Start another trip
