@@ -4,7 +4,7 @@ type Screen = 'home' | 'onboarding' | 'owner' | 'tap' | 'trip' | 'ended'
  
 type SavedEvent = {
   id: string
-  type: string
+  type: string 
   user: string
   carId: string 
   time: string
@@ -38,6 +38,10 @@ function nowTime() {
 export default function App() {
   const params = new URLSearchParams(window.location.search)
   const carFromUrl = params.get('car')
+   const isBook = carFromUrl === 'BOOK1'
+  const bookContribution = 2
+  const settlementThreshold = 20
+   const [bookBalance, setBookBalance] = useState(0)
 
   const [screen, setScreen] = useState<Screen>(carFromUrl ? 'tap' : 'home')
   const [ownerName, setOwnerName] = useState('Alex')
@@ -69,7 +73,11 @@ export default function App() {
     if (savedName) {
       setUserName(savedName)
     }
-
+    const savedBookBalance = localStorage.getItem('tg_book_balance')
+    if (savedBookBalance) {
+      setBookBalance(Number(savedBookBalance))
+    }
+   
     const savedTrip = localStorage.getItem('tg_active_trip')
     if (savedTrip) {
       try {
@@ -156,7 +164,12 @@ export default function App() {
     ])
     localStorage.setItem('tg_user_name', userName)
     localStorage.setItem('tg_active_trip', JSON.stringify(newTrip))
-    setScreen('trip')
+       if (isBook) {
+      const newBalance = bookBalance + bookContribution
+      setBookBalance(newBalance)
+      localStorage.setItem('tg_book_balance', String(newBalance))
+    }
+   setScreen('trip')
   }
 
   function endTrip() {
@@ -279,18 +292,23 @@ export default function App() {
         {screen === 'tap' && (
           <div className="grid grid--main">
             <Card>
-              <h2>{carName}</h2>
-              <p>£{ppuRate} per minute</p>
+              <h2>{isBook ? 'Guidebook' : carName}</h2>
+<p>{isBook ? `Contribution: £${bookContribution}` : `£${ppuRate} per minute`}</p>
 
               <label className="field">
-                <span>Who’s sharing the trip?</span>
+                <span>{isBook ? 'Who’s reading this book?' : 'Who’s sharing the trip?'}</span>
                 <input value={userName} onChange={(e) => setUserName(e.target.value)} />
               </label>
 
               <div className="button-row button-row--center">
                 <button className="button" onClick={startTrip} disabled={!userName.trim()}>
-                  Start trip
-                </button>
+  {isBook ? 'Record use' : 'Start trip'}
+</button>
+                             {isBook && (
+                <div className="note">
+                  Your accrued balance: £{bookBalance} / £{settlementThreshold}
+                </div>
+              )}
               </div>
 
               <div className="button-row">
@@ -306,12 +324,12 @@ export default function App() {
           <div className="grid grid--main">
             <Card>
               <h2>{carName}</h2>
-              <p>Trip in progress</p>
+              <p>{isBook ? 'Use recorded' : 'Trip in progress'}</p>
 
               <div className="success-box">
-                <h3>Trip started</h3>
-                <p>{userName} is sharing this trip.</p>
-                <p>Started at {tripStartTime}</p>
+                <h3>{isBook ? 'Use recorded' : 'Trip started'}</h3>
+<p>{isBook ? `${userName} added a £${bookContribution} contribution.` : `${userName} is sharing this trip.`}</p>
+{!isBook && <p>Started at {tripStartTime}</p>}
               </div>
 
               <div className="grid grid--three">
@@ -334,6 +352,11 @@ export default function App() {
               <p>Trip ended</p>
 
               <div className="success-box">
+                             {isBook && (
+                <div className="note">
+                  Accrued balance: £{bookBalance} / £{settlementThreshold}
+                </div>
+              )}
                 <h3>Trip ended</h3>
                 <p>Thanks, {userName}.</p>
                 <p>Estimated trip cost: £{tripCost}</p>
