@@ -290,35 +290,36 @@ export default function App() {
         )}
 
         {screen === 'tap' && (
-          <div className="grid grid--main">
-            <Card>
-              <h2>{isBook ? 'Guidebook' : carName}</h2>
-<p>{isBook ? `Contribution: £${bookContribution}` : `£${ppuRate} per minute`}</p>
+  <div className="grid grid--main">
+    <Card>
+      <h2>{isBook ? 'Guidebook' : carName}</h2>
+      <p>{isBook ? `Contribution: £${bookContribution}` : `£${ppuRate} per minute`}</p>
 
-              <label className="field">
-                <span>{isBook ? 'Who’s reading this book?' : 'Who’s sharing the trip?'}</span>
-                <input value={userName} onChange={(e) => setUserName(e.target.value)} />
-              </label>
+      <label className="field">
+        <span>{isBook ? 'Who’s reading this book?' : 'Who’s sharing the trip?'}</span>
+        <input value={userName} onChange={(e) => setUserName(e.target.value)} />
+      </label>
 
-              <div className="button-row button-row--center">
-                <button className="button" onClick={startTrip} disabled={!userName.trim()}>
-  {isBook ? 'Record use' : 'Start trip'}
-</button>
-                             {isBook && (
-                <div className="note">
-                  Your accrued balance: £{bookBalance} / £{settlementThreshold}
-                </div>
-              )}
-              </div>
+      <div className="button-row button-row--center">
+        <button className="button" onClick={startTrip} disabled={!userName.trim()}>
+          {isBook ? 'Record use' : 'Start trip'}
+        </button>
+      </div>
 
-              <div className="button-row">
-                <button className="button button--secondary" onClick={() => setScreen('owner')}>
-                  Back
-                </button>
-              </div>
-            </Card>
-          </div>
-        )}
+      {isBook && (
+        <div className="note">
+          Your accrued balance: £{bookBalance} / £{settlementThreshold}
+        </div>
+      )}
+
+      <div className="button-row">
+        <button className="button button--secondary" onClick={() => setScreen('owner')}>
+          Back
+        </button>
+      </div>
+    </Card>
+  </div>
+)}
 
         {screen === 'trip' && (
           <div className="grid grid--main">
