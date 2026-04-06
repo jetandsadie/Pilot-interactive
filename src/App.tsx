@@ -7,7 +7,7 @@ type SavedEvent = {
   type: string 
   user: string
   carId: string 
-  time: string
+  time: string 
 }
 
 type ActiveTrip = {
@@ -322,30 +322,42 @@ export default function App() {
 )}
 
         {screen === 'trip' && (
-          <div className="grid grid--main">
-            <Card>
-              <h2>{carName}</h2>
-              <p>{isBook ? 'Use recorded' : 'Trip in progress'}</p>
+  <div className="grid grid--main">
+    <Card>
+      <h2>{isBook ? 'Guidebook' : carName}</h2>
 
-              <div className="success-box">
-                <h3>{isBook ? 'Use recorded' : 'Trip started'}</h3>
-<p>{isBook ? `${userName} added a £${bookContribution} contribution.` : `${userName} is sharing this trip.`}</p>
-{!isBook && <p>Started at {tripStartTime}</p>}
-              </div>
+      <div className="success-box">
+        <h3>{isBook ? 'Use recorded' : 'Trip started'}</h3>
 
-              <div className="grid grid--three">
-                <Stat label="User" value={userName} />
-              </div>
+        <p>
+          {isBook
+            ? `${userName} added a £${bookContribution} contribution.`
+            : `${userName} is sharing this trip.`}
+        </p>
 
-              <div className="button-row">
-                <button className="button" onClick={endTrip}>
-                  Tap again to end trip
-                </button>
-              </div>
-            </Card>
-          </div>
+        {!isBook && <p>Started at {tripStartTime}</p>}
+      </div>
+
+      {isBook && (
+        <div className="note">
+          Your accrued balance: £{bookBalance} / £{settlementThreshold}
+        </div>
+      )}
+
+      <div className="button-row">
+        {isBook ? (
+          <button className="button" onClick={() => setScreen('tap')}>
+            Done
+          </button>
+        ) : (
+          <button className="button" onClick={endTrip}>
+            Tap again to end trip
+          </button>
         )}
-
+      </div>
+    </Card>
+  </div>
+)}
         {screen === 'ended' && (
           <div className="grid grid--main">
             <Card>
