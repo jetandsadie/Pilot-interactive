@@ -39,7 +39,20 @@ export default function App() {
   const params = new URLSearchParams(window.location.search)
   const carFromUrl = params.get('car')
 
+  const [screen, setScreen] = useState<Screen>(carFromUrl ? 'tap' : 'home')
+  const [ownerName, setOwnerName] = useState('Alex')
+  const [ownerEmail, setOwnerEmail] = useState('alex@example.com')
+  const [groupName, setGroupName] = useState('Blue Yaris Group')
+  const [carName, setCarName] = useState('Blue Yaris')
   const [carId, setCarId] = useState(carFromUrl || 'V001')
+  const [ppuRate, setPpuRate] = useState('0.42')
+  const [userName, setUserName] = useState('')
+  const [ownerRegistered, setOwnerRegistered] = useState(false)
+  const [tagReady, setTagReady] = useState(false)
+  const [tripStarted, setTripStarted] = useState(false)
+  const [tripStartTime, setTripStartTime] = useState<string | null>(null)
+  const [tripMinutes, setTripMinutes] = useState(35)
+  const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
 
   const isBook = carId === 'BOOK1' || carFromUrl === 'BOOK1'
   const itemTitle = isBook ? 'Guidebook' : 'Share trip cost'
