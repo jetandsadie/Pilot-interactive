@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 type Screen = 'home' | 'onboarding' | 'owner' | 'tap' | 'trip' | 'ended'
-
+ 
 type SavedEvent = {
   id: string
   type: string
