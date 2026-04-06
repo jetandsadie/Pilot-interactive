@@ -79,18 +79,23 @@ export default function App() {
     }
    
     const savedTrip = localStorage.getItem('tg_active_trip')
-if (savedTrip && !isBook) {
-      try {
-        const trip: ActiveTrip = JSON.parse(savedTrip)
-        setTripStarted(true)
-        setTripStartTime(trip.startTime)
-        setCarId(trip.carId)
-        setCarName(trip.carName)
-        setPpuRate(trip.ppuRate)
-      } catch {
-        localStorage.removeItem('tg_active_trip')
-      }
-    }
+if (savedTrip && carFromUrl !== 'BOOK1') {
+  try {
+    const trip: ActiveTrip = JSON.parse(savedTrip)
+    setTripStarted(true)
+    setTripStartTime(trip.startTime)
+    setCarId(trip.carId)
+    setCarName(trip.carName)
+    setPpuRate(trip.ppuRate)
+  } catch {
+    localStorage.removeItem('tg_active_trip')
+  }
+}
+   if (carFromUrl === 'BOOK1') {
+  setCarName('Guidebook')
+  setCarId('BOOK1')
+  localStorage.removeItem('tg_active_trip')
+}
   }, [])
 
   useEffect(() => {
