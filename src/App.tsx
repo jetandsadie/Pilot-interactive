@@ -38,6 +38,8 @@ function nowTime() {
 export default function App() {
   const params = new URLSearchParams(window.location.search)
   const carFromUrl = params.get('car')
+    const isBook = carId === 'BOOK1' || carFromUrl === 'BOOK1'
+  const itemTitle = isBook ? 'Guidebook' : 'Share trip cost'
 
   const [screen, setScreen] = useState<Screen>(carFromUrl ? 'tap' : 'home')
 
@@ -175,7 +177,7 @@ export default function App() {
     <div className="app-shell">
       <div className="container">
         <header className="hero">
-          <h1>Share trip cost</h1>
+          <h1>{itemTitle}</h1>
         </header>
 
         {screen === 'home' && (
@@ -284,14 +286,14 @@ export default function App() {
               <p>£{ppuRate} per minute</p>
 
               <label className="field">
-                <span>Who’s sharing the trip?</span>
+                <span>{isBook ? 'Who wants to read this book?' : 'Who’s sharing the trip?'}</span>
                 <input value={userName} onChange={(e) => setUserName(e.target.value)} />
               </label>
 
               <div className="button-row button-row--center">
                 <button className="button" onClick={startTrip} disabled={!userName.trim()}>
-                  Start trip
-                </button>
+  {isBook ? 'Record use' : 'Start trip'}
+</button>
               </div>
 
               <div className="button-row">
@@ -307,11 +309,11 @@ export default function App() {
           <div className="grid grid--main">
             <Card>
               <h2>{carName}</h2>
-              <p>Trip in progress</p>
+              <p>{isBook ? 'Use recorded' : 'Trip in progress'}</p>
 
               <div className="success-box">
                 <h3>Trip started</h3>
-                <p>{userName} is sharing this trip.</p>
+                <p>{isBook ? `${userName} used this book.` : `${userName} is sharing this trip.`}</p>
                 <p>Started at {tripStartTime}</p>
               </div>
 
@@ -335,7 +337,7 @@ export default function App() {
               <p>Trip ended</p>
 
               <div className="success-box">
-                <h3>Trip ended</h3>
+                <h3>{isBook ? 'Use recorded' : 'Trip ended'}</h3>
                 <p>Thanks, {userName}.</p>
                 <p>Estimated trip cost: £{tripCost}</p>
               </div>
