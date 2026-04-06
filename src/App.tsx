@@ -174,7 +174,7 @@ export default function App() {
     <div className="app-shell">
       <div className="container">
         <header className="hero">
-          <h1>Share trip cost</h1>
+          <h1>{carId === 'BOOK1' ? 'Guidebook' : 'Share trip cost'}</h1>
         </header>
 
         {screen === 'home' && (
