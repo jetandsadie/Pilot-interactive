@@ -6,7 +6,7 @@ type SavedEvent = {
   id: string
   type: string
   user: string
-  carId: string
+  carId: string 
   time: string
 }
 
@@ -174,7 +174,7 @@ export default function App() {
     <div className="app-shell">
       <div className="container">
         <header className="hero">
-          <h1>{carId === 'BOOK1' ? 'Guidebook' : 'Share trip cost'}</h1>
+        <h1>{carFromUrl === 'BOOK1' ? 'Guidebook' : 'Share trip cost'}</h1>  
         </header>
 
         {screen === 'home' && (
