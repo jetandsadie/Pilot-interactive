@@ -38,7 +38,10 @@ function nowTime() {
 export default function App() {
   const params = new URLSearchParams(window.location.search)
   const carFromUrl = params.get('car')
-    const isBook = carId === 'BOOK1' || carFromUrl === 'BOOK1'
+
+  const [carId, setCarId] = useState(carFromUrl || 'V001')
+
+  const isBook = carId === 'BOOK1' || carFromUrl === 'BOOK1'
   const itemTitle = isBook ? 'Guidebook' : 'Share trip cost'
 
   const [screen, setScreen] = useState<Screen>(carFromUrl ? 'tap' : 'home')
