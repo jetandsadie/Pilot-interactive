@@ -79,7 +79,7 @@ export default function App() {
     }
    
     const savedTrip = localStorage.getItem('tg_active_trip')
-    if (savedTrip) {
+if (savedTrip && !isBook) {
       try {
         const trip: ActiveTrip = JSON.parse(savedTrip)
         setTripStarted(true)
@@ -142,8 +142,15 @@ export default function App() {
       { id: crypto.randomUUID(), type: 'trip_started', user: userName, carId: carFromUrl, time },
       ...current,
     ])
-    localStorage.setItem('tg_active_trip', JSON.stringify(newTrip))
-    setScreen('trip')
+    localStorage.setItem('tg_user_name', userName)
+
+if (isBook) {
+  localStorage.removeItem('tg_active_trip')
+} else {
+  localStorage.setItem('tg_active_trip', JSON.stringify(newTrip))
+}
+
+setScreen('trip')
   }, [carFromUrl, userName, carName, ppuRate])
 
   function startTrip() {
