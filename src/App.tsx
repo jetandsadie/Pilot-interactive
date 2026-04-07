@@ -39,9 +39,10 @@ export default function App() {
   const params = new URLSearchParams(window.location.search)
   const carFromUrl = params.get('car')
    const isBook = carFromUrl === 'BOOK1'
-  const bookContribution = 2
-  const settlementThreshold = 20
+const bookContribution = 1.5
+const settlementThreshold = 3
    const [bookBalance, setBookBalance] = useState(0)
+ const [bookUseCount, setBookUseCount] = useState(0)
 
   const [screen, setScreen] = useState<Screen>(carFromUrl ? 'tap' : 'home')
   const [ownerName, setOwnerName] = useState('Alex')
@@ -76,6 +77,10 @@ export default function App() {
     const savedBookBalance = localStorage.getItem('tg_book_balance')
     if (savedBookBalance) {
       setBookBalance(Number(savedBookBalance))
+     const savedBookUseCount = localStorage.getItem('tg_book_use_count')
+if (savedBookUseCount) {
+  setBookUseCount(Number(savedBookUseCount))
+}
     }
    
     const savedTrip = localStorage.getItem('tg_active_trip')
@@ -177,10 +182,15 @@ setScreen('trip')
     localStorage.setItem('tg_user_name', userName)
     localStorage.setItem('tg_active_trip', JSON.stringify(newTrip))
        if (isBook) {
-      const newBalance = bookBalance + bookContribution
-      setBookBalance(newBalance)
-      localStorage.setItem('tg_book_balance', String(newBalance))
-    }
+  const newBalance = bookBalance + bookContribution
+  const newUseCount = bookUseCount + 1
+
+  setBookBalance(newBalance)
+  setBookUseCount(newUseCount)
+
+  localStorage.setItem('tg_book_balance', String(newBalance))
+  localStorage.setItem('tg_book_use_count', String(newUseCount))
+}
    setScreen('trip')
   }
 
@@ -304,8 +314,8 @@ setScreen('trip')
         {screen === 'tap' && (
   <div className="grid grid--main">
     <Card>
-      <h2>{isBook ? 'Guidebook' : carName}</h2>
-      <p>{isBook ? `Contribution: £${bookContribution}` : `£${ppuRate} per minute`}</p>
+      <h2>{isBook ? 'Bohuslän Guidebook' : carName}</h2>
+<p>{isBook ? `Click the button to make a £${bookContribution.toFixed(2)} donation to Oxfam` : `£${ppuRate} per minute`}</p>
 
       <label className="field">
         <span>{isBook ? 'Who’s reading this book?' : 'Who’s sharing the trip?'}</span>
@@ -313,16 +323,17 @@ setScreen('trip')
       </label>
 
       <div className="button-row button-row--center">
-        <button className="button" onClick={startTrip} disabled={!userName.trim()}>
-          {isBook ? 'Record use' : 'Start trip'}
-        </button>
-      </div>
+  <button className="button" onClick={startTrip} disabled={!userName.trim()}>
+    {isBook ? 'Donate' : 'Start trip'}
+  </button>
+</div>
 
-      {isBook && (
-        <div className="note">
-          Your accrued balance: £{bookBalance} / £{settlementThreshold}
-        </div>
-      )}
+{isBook && (
+  <div className="note">
+    <div>Uses recorded: {bookUseCount}</div>
+    <div>Balance: £{bookBalance.toFixed(2)} of £{settlementThreshold.toFixed(2)} target</div>
+  </div>
+)}
 
       <div className="button-row">
         <button className="button button--secondary" onClick={() => setScreen('owner')}>
@@ -336,14 +347,14 @@ setScreen('trip')
         {screen === 'trip' && (
   <div className="grid grid--main">
     <Card>
-      <h2>{isBook ? 'Guidebook' : carName}</h2>
+      <h2>{isBook ? 'Bohuslän Guidebook' : carName}</h2>
 
       <div className="success-box">
-        <h3>{isBook ? 'Use recorded' : 'Trip started'}</h3>
+        <h3>{isBook ? 'Donation recorded' : 'Trip started'}</h3>
 
         <p>
           {isBook
-            ? `${userName} added a £${bookContribution} contribution.`
+            ? `${userName} added a £${bookContribution.toFixed(2)} donation.`
             : `${userName} is sharing this trip.`}
         </p>
 
@@ -352,15 +363,22 @@ setScreen('trip')
 
       {isBook && (
         <div className="note">
-          Your accrued balance: £{bookBalance} / £{settlementThreshold}
+          <div>Uses recorded: {bookUseCount}</div>
+          <div>Balance: £{bookBalance.toFixed(2)} of £{settlementThreshold.toFixed(2)} target</div>
         </div>
       )}
 
       <div className="button-row">
         {isBook ? (
-          <button className="button" onClick={() => setScreen('tap')}>
-            Done
-          </button>
+          bookBalance >= settlementThreshold ? (
+            <button className="button" onClick={() => setScreen('ended')}>
+              Pay £{settlementThreshold.toFixed(2)}
+            </button>
+          ) : (
+            <button className="button" onClick={() => setScreen('tap')}>
+              Done
+            </button>
+          )
         ) : (
           <button className="button" onClick={endTrip}>
             Tap again to end trip
@@ -373,19 +391,18 @@ setScreen('trip')
         {screen === 'ended' && (
           <div className="grid grid--main">
             <Card>
-              <h2>{carName}</h2>
-              <p>Trip ended</p>
+              <h2>{isBook ? 'Bohuslän Guidebook' : carName}</h2>
+<p>{isBook ? 'Payment ready' : 'Trip ended'}</p>
 
-              <div className="success-box">
-                             {isBook && (
-                <div className="note">
-                  Accrued balance: £{bookBalance} / £{settlementThreshold}
-                </div>
-              )}
-                <h3>Trip ended</h3>
-                <p>Thanks, {userName}.</p>
-                <p>Estimated trip cost: £{tripCost}</p>
-              </div>
+<div className="success-box">
+  <h3>{isBook ? 'Ready to pay Oxfam' : 'Trip ended'}</h3>
+  <p>
+    {isBook
+      ? `You have recorded ${bookUseCount} uses and reached £${bookBalance.toFixed(2)}.`
+      : `Thanks, ${userName}.`}
+  </p>
+  {!isBook && <p>Estimated trip cost: £{tripCost}</p>}
+</div>
 
               <div className="grid grid--three">
                 <Stat label="User" value={userName} />
@@ -407,13 +424,26 @@ setScreen('trip')
               </div>
 
               <div className="button-row">
-                <button className="button" onClick={() => setScreen('tap')}>
-                  Start another trip
-                </button>
-                <button className="button button--secondary" onClick={() => setScreen('home')}>
-                  Return home
-                </button>
-              </div>
+  {isBook ? (
+    <>
+      <button className="button">
+        Pay £{settlementThreshold.toFixed(2)}
+      </button>
+      <button className="button button--secondary" onClick={() => setScreen('tap')}>
+        Back
+      </button>
+    </>
+  ) : (
+    <>
+      <button className="button" onClick={() => setScreen('tap')}>
+        Start another trip
+      </button>
+      <button className="button button--secondary" onClick={() => setScreen('home')}>
+        Return home
+      </button>
+    </>
+  )}
+</div>
             </Card>
           </div>
         )}
