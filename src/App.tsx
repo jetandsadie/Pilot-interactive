@@ -1,459 +1,53 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-
-type Screen = 'home' | 'onboarding' | 'owner' | 'tap' | 'trip' | 'ended'
- 
-type SavedEvent = {
-  id: string
-  type: string 
-  user: string
-  carId: string 
-  time: string 
-}
-
-type ActiveTrip = {
-  user: string
-  carId: string
-  carName: string
-  ppuRate: string
-  startTime: string
-}
-
-function Card({ children }: { children: React.ReactNode }) {
-  return <div className="card">{children}</div>
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="stat">
-      <div className="stat__label">{label}</div>
-      <div className="stat__value">{value}</div>
-    </div>
-  )
-}
-
-function nowTime() {
-  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-export default function App() {
-  const params = new URLSearchParams(window.location.search)
-  const carFromUrl = params.get('car')
-   const isBook = carFromUrl === 'BOOK1'
-const bookContribution = 1.5
-const settlementThreshold = 3
-   const [bookBalance, setBookBalance] = useState(0)
- const [bookUseCount, setBookUseCount] = useState(0)
-
-  const [screen, setScreen] = useState<Screen>(carFromUrl ? 'tap' : 'home')
-  const [ownerName, setOwnerName] = useState('Alex')
-  const [ownerEmail, setOwnerEmail] = useState('alex@example.com')
-  const [groupName, setGroupName] = useState('Blue Yaris Group')
-
-  const [carName, setCarName] = useState('Blue Yaris')
-  const [carId, setCarId] = useState(carFromUrl || 'V001')
-  const [ppuRate, setPpuRate] = useState('0.42')
-
-  const [userName, setUserName] = useState('')
-  const [ownerRegistered, setOwnerRegistered] = useState(false)
-  const [tagReady, setTagReady] = useState(false)
-
-  const [tripStarted, setTripStarted] = useState(false)
-  const [tripStartTime, setTripStartTime] = useState<string | null>(null)
-  const [tripMinutes, setTripMinutes] = useState(35)
-  const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
-
-  const autoHandledRef = useRef(false)
-
-  const tripCost = useMemo(() => {
-    const rate = Number(ppuRate || 0)
-    return (tripMinutes * rate).toFixed(2)
-  }, [tripMinutes, ppuRate])
-
-  useEffect(() => {
-    const savedName = localStorage.getItem('tg_user_name')
-    if (savedName) {
-      setUserName(savedName)
-    }
-    const savedBookBalance = localStorage.getItem('tg_book_balance')
-    if (savedBookBalance) {
-      setBookBalance(Number(savedBookBalance))
-     const savedBookUseCount = localStorage.getItem('tg_book_use_count')
-if (savedBookUseCount) {
-  setBookUseCount(Number(savedBookUseCount))
-}
-    }
-   
-    const savedTrip = localStorage.getItem('tg_active_trip')
-if (savedTrip && carFromUrl !== 'BOOK1') {
-  try {
-    const trip: ActiveTrip = JSON.parse(savedTrip)
-    setTripStarted(true)
-    setTripStartTime(trip.startTime)
-    setCarId(trip.carId)
-    setCarName(trip.carName)
-    setPpuRate(trip.ppuRate)
-  } catch {
-    localStorage.removeItem('tg_active_trip')
-  }
-}
-   if (carFromUrl === 'BOOK1') {
-  setCarName('Guidebook')
-  setCarId('BOOK1')
-  localStorage.removeItem('tg_active_trip')
-}
-  }, [])
-
-  useEffect(() => {
-    if (!carFromUrl) return
-    if (!userName.trim()) return
-    if (autoHandledRef.current) return
-
-    autoHandledRef.current = true
-
-    const savedTrip = localStorage.getItem('tg_active_trip')
-
-    if (savedTrip) {
-      try {
-        const trip: ActiveTrip = JSON.parse(savedTrip)
-
-        if (trip.carId === carFromUrl && trip.user === userName) {
-          const time = nowTime()
-          setTripStarted(false)
-          setTripStartTime(trip.startTime)
-          setCarId(trip.carId)
-          setCarName(trip.carName)
-          setPpuRate(trip.ppuRate)
-          setSavedEvents((current) => [
-            { id: crypto.randomUUID(), type: 'trip_ended', user: userName, carId: trip.carId, time },
-            ...current,
-          ])
-          localStorage.removeItem('tg_active_trip')
-          setScreen('ended')
-          return
-        }
-      } catch {
-        localStorage.removeItem('tg_active_trip')
-      }
-    }
-
-    const time = nowTime()
-    const newTrip: ActiveTrip = {
-      user: userName,
-      carId: carFromUrl,
-      carName,
-      ppuRate,
-      startTime: time,
-    }
-
-    setTripStarted(true)
-    setTripStartTime(time)
-    setCarId(carFromUrl)
-    setSavedEvents((current) => [
-      { id: crypto.randomUUID(), type: 'trip_started', user: userName, carId: carFromUrl, time },
-      ...current,
-    ])
-    localStorage.setItem('tg_user_name', userName)
-
-if (isBook) {
-  localStorage.removeItem('tg_active_trip')
-} else {
-  localStorage.setItem('tg_active_trip', JSON.stringify(newTrip))
-}
-
-setScreen('trip')
-  }, [carFromUrl, userName, carName, ppuRate])
-
-  function startTrip() {
-    const time = nowTime()
-    const newTrip: ActiveTrip = {
-      user: userName,
-      carId,
-      carName,
-      ppuRate,
-      startTime: time,
-    }
-
-    setTripStarted(true)
-    setTripStartTime(time)
-    setSavedEvents((current) => [
-      { id: crypto.randomUUID(), type: 'trip_started', user: userName, carId, time },
-      ...current,
-    ])
-    localStorage.setItem('tg_user_name', userName)
-    localStorage.setItem('tg_active_trip', JSON.stringify(newTrip))
-       if (isBook) {
-  const newBalance = bookBalance + bookContribution
-  const newUseCount = bookUseCount + 1
-
-  setBookBalance(newBalance)
-  setBookUseCount(newUseCount)
-
-  localStorage.setItem('tg_book_balance', String(newBalance))
-  localStorage.setItem('tg_book_use_count', String(newUseCount))
-}
-   setScreen('trip')
-  }
-
-  function endTrip() {
-    const time = nowTime()
-    setTripStarted(false)
-    setSavedEvents((current) => [
-      { id: crypto.randomUUID(), type: 'trip_ended', user: userName, carId, time },
-      ...current,
-    ])
-    localStorage.removeItem('tg_active_trip')
-    setScreen('ended')
-  }
-
-  return (
-    <div className="app-shell">
-      <div className="container">
-        <header className="hero">
-        <h1>{carFromUrl === 'BOOK1' ? 'Guidebook' : 'Share trip cost'}</h1>  
-        </header>
-
-        {screen === 'home' && (
-          <div className="grid grid--main">
-            <Card>
-              <h2>Owner onboarding</h2>
-              <p className="muted">Set up a car and tag for trip sharing.</p>
-
-              <div className="button-row">
-                <button className="button" onClick={() => setScreen('onboarding')}>
-                  Start
-                </button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {screen === 'onboarding' && (
-          <div className="grid grid--main">
-            <Card>
-              <h2>Owner onboarding</h2>
-
-              <label className="field">
-                <span>Owner name</span>
-                <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
-              </label>
-
-              <label className="field">
-                <span>Email</span>
-                <input value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} />
-              </label>
-
-              <label className="field">
-                <span>Group name</span>
-                <input value={groupName} onChange={(e) => setGroupName(e.target.value)} />
-              </label>
-
-              <div className="button-row">
-                <button
-                  className="button"
-                  onClick={() => {
-                    setOwnerRegistered(true)
-                    setScreen('owner')
-                  }}
-                >
-                  Continue
-                </button>
-                <button className="button button--secondary" onClick={() => setScreen('home')}>
-                  Back
-                </button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {screen === 'owner' && (
-          <div className="grid grid--main">
-            <Card>
-              <h2>Car and tag setup</h2>
-
-              <label className="field">
-                <span>Car name</span>
-                <input value={carName} onChange={(e) => setCarName(e.target.value)} />
-              </label>
-
-              <div className="grid grid--two">
-                <label className="field">
-                  <span>Car ID</span>
-                  <input value={carId} onChange={(e) => setCarId(e.target.value)} />
-                </label>
-                <label className="field">
-                  <span>PPU rate (£/minute)</span>
-                  <input value={ppuRate} onChange={(e) => setPpuRate(e.target.value)} />
-                </label>
-              </div>
-
-              <div className="tag-box">
-                <h3>NFC tag</h3>
-                <div className="button-row">
-                  <button className="button" onClick={() => setTagReady(true)}>
-                    {tagReady ? 'Tag activated' : 'Activate tag'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="button-row">
-                <button
-                  className="button"
-                  disabled={!ownerRegistered || !tagReady}
-                  onClick={() => setScreen('tap')}
-                >
-                  Open tap flow
-                </button>
-                <button className="button button--secondary" onClick={() => setScreen('onboarding')}>
-                  Back
-                </button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {screen === 'tap' && (
-  <div className="grid grid--main">
-    <Card>
-      <h2>{isBook ? 'Bohuslän Guidebook' : carName}</h2>
-<p>{isBook ? `Click the button to make a £${bookContribution.toFixed(2)} donation to Oxfam` : `£${ppuRate} per minute`}</p>
-
-      <label className="field">
-        <span>{isBook ? 'Who’s reading this book?' : 'Who’s sharing the trip?'}</span>
-        <input value={userName} onChange={(e) => setUserName(e.target.value)} />
-      </label>
-
-      <div className="button-row button-row--center">
-  <button className="button" onClick={startTrip} disabled={!userName.trim()}>
-    {isBook ? 'Donate' : 'Start trip'}
-  </button>
-</div>
-
-{isBook && (
-  <div className="note">
-    <div>Uses recorded: {bookUseCount}</div>
-    <div>Balance: £{bookBalance.toFixed(2)} of £{settlementThreshold.toFixed(2)} target</div>
-  </div>
-)}
-
-      <div className="button-row">
-        <button className="button button--secondary" onClick={() => setScreen('owner')}>
-          Back
-        </button>
-      </div>
-    </Card>
-  </div>
-)}
-
-        {screen === 'trip' && (
-  <div className="grid grid--main">
-    <Card>
-      <h2>{isBook ? 'Bohuslän Guidebook' : carName}</h2>
-
-      <div className="success-box">
-        <h3>{isBook ? 'Donation recorded' : 'Trip started'}</h3>
-
-        <p>
-          {isBook
-            ? `${userName} added a £${bookContribution.toFixed(2)} donation.`
-            : `${userName} is sharing this trip.`}
-        </p>
-
-        {!isBook && <p>Started at {tripStartTime}</p>}
-      </div>
-
-      {isBook && (
-        <div className="note">
-          <div>Uses recorded: {bookUseCount}</div>
-          <div>Balance: £{bookBalance.toFixed(2)} of £{settlementThreshold.toFixed(2)} target</div>
-        </div>
-      )}
-
-      <div className="button-row">
-        {isBook ? (
-          bookBalance >= settlementThreshold ? (
-            <button className="button" onClick={() => setScreen('ended')}>
-              Pay £{settlementThreshold.toFixed(2)}
-            </button>
-          ) : (
-            <button className="button" onClick={() => setScreen('tap')}>
-              Done
-            </button>
-          )
-        ) : (
-          <button className="button" onClick={endTrip}>
-            Tap again to end trip
-          </button>
-        )}
-      </div>
-    </Card>
-  </div>
-)}
-        {screen === 'ended' && (
-          <div className="grid grid--main">
-            <Card>
-              <h2>{isBook ? 'Bohuslän Guidebook' : carName}</h2>
-<p>{isBook ? 'Payment ready' : 'Trip ended'}</p>
-
-<div className="success-box">
-  <h3>{isBook ? 'Ready to pay Oxfam' : 'Trip ended'}</h3>
-  <p>
-    {isBook
-      ? `You have recorded ${bookUseCount} uses and reached £${bookBalance.toFixed(2)}.`
-      : `Thanks, ${userName}.`}
-  </p>
-  {!isBook && <p>Estimated trip cost: £{tripCost}</p>}
-</div>
-
-              <div className="grid grid--three">
-                <Stat label="User" value={userName} />
-                <div className="stat">
-                  <div className="stat__label">Duration</div>
-                  <div className="stat__value">{tripMinutes} mins</div>
-                </div>
-                <Stat label="Estimated cost" value={`£${tripCost}`} />
-              </div>
-
-              <h3>Who has used this</h3>
-
-              <div className="event-list">
-                {savedEvents.map((event) => (
-                  <div className="event-item" key={event.id}>
-                    {event.user}
-                  </div>
-                ))}
-              </div>
-
-              <div className="button-row">
-  {isBook ? (
-    <>
-     <div className="note">
-  This pilot supports Oxfam. Payment is processed securely via Stripe.
-</div>
-      <button
-  className="button"
-  onClick={() => window.location.href = 'https://donate.stripe.com/test_eVqdRa99q2Z69gUg7m3cc00'}
->
-  Donate £{settlementThreshold.toFixed(2)} to Oxfam
-</button>
-      <button className="button button--secondary" onClick={() => setScreen('tap')}>
-        Back
-      </button>
-    </>
-  ) : (
-    <>
-      <button className="button" onClick={() => setScreen('tap')}>
-        Start another trip
-      </button>
-      <button className="button button--secondary" onClick={() => setScreen('home')}>
-        Return home
-      </button>
-    </>
-  )}
-</div>
-            </Card>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+import React, { useEffect, useMemo, useState } from 'react'
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    color: '#58708f',
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: 800,
+  },
+  successBox: {
+    marginTop: 18,
+    background: '#eef9f1',
+    border: '1px solid #cdebd6',
+    borderRadius: 16,
+    padding: 14,
+    display: 'grid',
+    gap: 4,
+  },
+  neutralBox: {
+    marginTop: 18,
+    background: '#f5f8fc',
+    border: '1px solid #dfe8f2',
+    borderRadius: 16,
+    padding: 14,
+  },
+  notice: {
+    background: '#fff7e8',
+    border: '1px solid #f1ddb1',
+    color: '#6f5310',
+    borderRadius: 16,
+    padding: 14,
+  },
+  list: {
+    display: 'grid',
+    gap: 10,
+    marginTop: 14,
+  },
+  listItem: {
+    border: '1px solid #e5ebf3',
+    borderRadius: 14,
+    padding: 12,
+    background: '#fcfdff',
+  },
+  listTitle: {
+    fontWeight: 700,
+    marginBottom: 4,
+  },
+  listMeta: {
+    color: '#62738a',
+    fontSize: 14,
+  },
 }
