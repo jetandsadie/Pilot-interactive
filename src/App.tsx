@@ -426,9 +426,15 @@ setScreen('trip')
               <div className="button-row">
   {isBook ? (
     <>
-      <button className="button">
-        Pay £{settlementThreshold.toFixed(2)}
-      </button>
+     <div className="note">
+  This pilot supports Oxfam. Payment is processed securely via Stripe.
+</div>
+      <button
+  className="button"
+  onClick={() => window.location.href = 'https://donate.stripe.com/test_eVqdRa99q2Z69gUg7m3cc00'}
+>
+  Donate £{settlementThreshold.toFixed(2)} to Oxfam
+</button>
       <button className="button button--secondary" onClick={() => setScreen('tap')}>
         Back
       </button>
