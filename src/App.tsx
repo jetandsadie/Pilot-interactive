@@ -22,9 +22,9 @@ export default function App() {
   async function recordEvent(actionType: string) {
     setIsSubmitting(true)
     
-    // This pushes the data to your "Pilot Submissions" table
+    // This pushes the data to your "pilot_submissions" table
     const { error } = await supabase
-      .from('Pilot Submissions')
+      .from('pilot_submissions')
       .insert([{ 
           user_name: userName, 
           car_id: carId, 
