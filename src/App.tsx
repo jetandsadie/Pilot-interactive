@@ -8,11 +8,10 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export default function App() {
   const params = new URLSearchParams(window.location.search)
   
-  // Logic to determine if we are in "Setup Mode" or "Driver Mode"
   const isSetupMode = params.get('mode') === 'setup'
   
-  const [providerId, setProviderId] = useState(params.get('provider') || 'unknown')
-  const [carId, setCarId] = useState(params.get('car') || 'V001')
+  const [providerId, setProviderId] = useState(params.get('provider') || '')
+  const [carId, setCarId] = useState(params.get('car') || '')
   const [screen, setScreen] = useState('tap')
   const [userName, setUserName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -28,8 +27,8 @@ export default function App() {
       .from('pilot_submissions') 
       .insert([{ 
           user_name: userName, 
-          car_id: carId, 
-          provider_id: providerId,
+          car_id: carId || 'Unknown_Car', 
+          provider_id: providerId || 'Independent',
           action: actionType
         }])
 
@@ -41,92 +40,102 @@ export default function App() {
     setIsSubmitting(false)
   }
 
-  // --- VIEW 1: THE SETUP/PROVISIONING TOOL ---
   if (isSetupMode) {
-    const generatedUrl = `${window.location.origin}/?provider=${providerId.replace(/\s+/g, '_')}&car=${carId.replace(/\s+/g, '_')}`
+    // We clean the URL to replace spaces with underscores for better stability
+    const cleanProvider = providerId.trim().replace(/\s+/g, '_') || 'Owner'
+    const cleanCar = carId.trim().replace(/\s+/g, '_') || 'Registration'
+    const generatedUrl = `${window.location.origin}/?provider=${cleanProvider}&car=${cleanCar}`
     
     return (
-      <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '500px', margin: '0 auto' }}>
-        <h2>🛠 Provider Setup Tool</h2>
-        <p style={{ color: '#666' }}>Configure your vehicle's NFC tag or QR code here.</p>
+      <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '500px', margin: '0 auto', color: '#333' }}>
+        <h2 style={{ borderBottom: '2px solid #0070f3', paddingBottom: '10px' }}>🛠 Tag Setup Tool</h2>
+        <p style={{ color: '#666', fontSize: '14px' }}>Enter your details to generate the link for your NFC tag or QR code.</p>
         
-        <div style={{ background: '#f4f4f4', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Provider Name</label>
+        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #ddd' }}>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Name of Owner</label>
           <input 
-            style={{ width: '100%', padding: '10px', marginBottom: '15px', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '12px', marginBottom: '20px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #ccc' }}
             value={providerId} 
             onChange={(e) => setProviderId(e.target.value)}
-            placeholder="e.g. London_Car_Club"
+            placeholder="e.g. Southside Co-op"
           />
 
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Vehicle ID</label>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Car Registration</label>
           <input 
-            style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #ccc' }}
             value={carId} 
             onChange={(e) => setCarId(e.target.value)}
-            placeholder="e.g. V001"
+            placeholder="e.g. AB12 CDE"
           />
         </div>
 
-        <h3>🔗 Your Tag URL:</h3>
-        <div style={{ background: '#eef', padding: '15px', wordBreak: 'break-all', borderRadius: '5px', border: '1px dashed #0070f3', fontSize: '14px' }}>
+        <h3 style={{ marginBottom: '10px' }}>🔗 Your Unique Tag URL:</h3>
+        <div style={{ 
+          background: '#e7f3ff', 
+          padding: '15px', 
+          wordBreak: 'break-all', 
+          borderRadius: '8px', 
+          border: '2px dashed #0070f3', 
+          fontSize: '15px',
+          color: '#004aab', // Dark blue text for readability
+          fontWeight: '500'
+        }}>
           {generatedUrl}
         </div>
 
-        <p style={{ fontSize: '12px', color: '#888', marginTop: '10px' }}>
-          Copy this URL and write it to your NFC tag using an app like "NFC Tools".
+        <p style={{ fontSize: '13px', color: '#555', marginTop: '15px', fontStyle: 'italic' }}>
+          Copy the link above. Use a mobile app like <strong>NFC Tools</strong> to "Write" this URL to your vehicle's tag.
         </p>
 
-        <hr style={{ margin: '30px 0' }} />
-        <h3>📱 Driver Preview:</h3>
-        <div style={{ border: '4px solid #333', borderRadius: '20px', padding: '10px' }}>
-             {/* Simple visual preview of the driver's screen */}
+        <hr style={{ margin: '40px 0', opacity: 0.3 }} />
+        <h3 style={{ color: '#888', textAlign: 'center', fontSize: '14px', textTransform: 'uppercase' }}>Preview of Driver's Phone</h3>
+        <div style={{ border: '8px solid #222', borderRadius: '30px', padding: '10px', background: 'white', maxWidth: '300px', margin: '0 auto', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <h2 style={{ color: '#0070f3' }}>{providerId}</h2>
-                <p>Vehicle: {carId}</p>
-                <div style={{ height: '40px', background: '#eee', borderRadius: '5px', margin: '10px 0' }}></div>
-                <div style={{ height: '45px', background: '#0070f3', borderRadius: '5px' }}></div>
+                <h2 style={{ color: '#0070f3', margin: '0 0 5px 0' }}>{providerId || 'Owner Name'}</h2>
+                <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>Vehicle: <strong>{carId || 'Registration'}</strong></p>
+                <div style={{ height: '40px', background: '#f0f0f0', borderRadius: '5px', margin: '20px 0 10px 0', border: '1px solid #eee' }}></div>
+                <div style={{ height: '45px', background: '#0070f3', borderRadius: '5px', color: 'white', lineHeight: '45px', fontWeight: 'bold', fontSize: '14px' }}>START TRIP</div>
              </div>
         </div>
       </div>
     )
   }
 
-  // --- VIEW 2: THE DRIVER LOGGING APP (Standard View) ---
+  // --- DRIVER LOGGING VIEW ---
   return (
     <div style={{ padding: '40px 20px', textAlign: 'center', fontFamily: 'sans-serif', maxWidth: '400px', margin: '0 auto' }}>
-      <h1 style={{ color: '#0070f3' }}>{providerId.replace(/_/g, ' ')}</h1>
-      <p>Vehicle: <strong>{carId}</strong></p>
+      <h1 style={{ color: '#0070f3', marginBottom: '5px' }}>{providerId.replace(/_/g, ' ') || 'Independent'}</h1>
+      <p style={{ marginTop: '0', color: '#666' }}>Vehicle: <strong>{carId.replace(/_/g, ' ') || 'V001'}</strong></p>
 
       {screen === 'tap' && (
-        <div>
+        <div style={{ marginTop: '30px' }}>
           <input 
-            style={{ padding: '12px', width: '100%', marginBottom: '15px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px', boxSizing: 'border-box' }}
+            style={{ padding: '15px', width: '100%', marginBottom: '15px', borderRadius: '10px', border: '1px solid #ccc', fontSize: '16px', boxSizing: 'border-box' }}
             value={userName} 
             onChange={(e) => {
               setUserName(e.target.value)
               localStorage.setItem('tg_user_name', e.target.value)
             }} 
-            placeholder="Driver Name"
+            placeholder="Your Name"
           />
           <button 
             disabled={!userName || isSubmitting}
             onClick={() => recordEvent('trip_started')}
-            style={{ width: '100%', padding: '15px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '18px' }}
+            style={{ width: '100%', padding: '18px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '18px', cursor: 'pointer', transition: '0.2s' }}
           >
-            {isSubmitting ? 'Syncing...' : 'Start Trip'}
+            {isSubmitting ? 'Recording...' : 'Start Trip'}
           </button>
         </div>
       )}
 
       {screen === 'trip' && (
-        <div style={{ backgroundColor: '#f0f7ff', padding: '30px', borderRadius: '12px', border: '2px solid #0070f3' }}>
-          <h2 style={{ color: '#0070f3' }}>Trip Active</h2>
+        <div style={{ backgroundColor: '#f0f7ff', padding: '30px', borderRadius: '15px', border: '2px solid #0070f3', marginTop: '20px' }}>
+          <h2 style={{ color: '#0070f3', marginTop: '0' }}>Trip Active</h2>
           <p>Drive safely, {userName}!</p>
           <button 
             disabled={isSubmitting}
             onClick={() => recordEvent('trip_ended')} 
-            style={{ width: '100%', padding: '15px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '18px' }}
+            style={{ width: '100%', padding: '18px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '18px', cursor: 'pointer' }}
           >
             End Trip
           </button>
@@ -134,12 +143,12 @@ export default function App() {
       )}
 
       {screen === 'ended' && (
-        <div>
+        <div style={{ marginTop: '30px' }}>
           <h2 style={{ color: '#28a745' }}>✅ Trip Recorded</h2>
-          <p>Thank you for using {providerId.replace(/_/g, ' ')}.</p>
+          <p>The ledger has been updated for {providerId.replace(/_/g, ' ')}.</p>
           <button 
             onClick={() => setScreen('tap')} 
-            style={{ marginTop: '20px', padding: '10px 20px', borderRadius: '5px', border: '1px solid #ccc', cursor: 'pointer' }}
+            style={{ marginTop: '20px', padding: '12px 24px', borderRadius: '8px', border: '1px solid #ccc', cursor: 'pointer', background: 'white' }}
           >
             New Trip
           </button>
