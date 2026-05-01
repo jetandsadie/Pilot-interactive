@@ -17,6 +17,9 @@ export default function App() {
   const [history, setHistory] = useState<any[]>([]) 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Helper to make text look pretty (removes %27, underscores, etc)
+  const cleanText = (txt: string) => txt ? decodeURIComponent(txt).replace(/_/g, ' ') : ''
+
   useEffect(() => {
     const savedName = localStorage.getItem('tg_user_name')
     if (savedName) setUserName(savedName)
@@ -37,16 +40,17 @@ export default function App() {
     const activeProvider = params.get('provider')
     const activeUser = params.get('user')
     let query = supabase.from('pilot_submissions').select('*').order('created_at', { ascending: false }).limit(30)
-    if (activeProvider) query = query.eq('provider_id', activeProvider)
-    if (activeUser) query = query.eq('user_name', activeUser)
+    if (activeProvider) query = query.eq('provider_id', decodeURIComponent(activeProvider))
+    if (activeUser) query = query.eq('user_name', decodeURIComponent(activeUser))
     const { data, error } = await query
     if (!error) setHistory(data || [])
   }
 
   async function recordEvent(actionType: string) {
     setIsSubmitting(true)
-    const finalProvider = params.get('provider') || providerId || 'Independent'
-    const finalCar = params.get('car') || carId || 'Unknown_Car'
+    const finalProvider = cleanText(params.get('provider') || providerId || 'Independent')
+    const finalCar = cleanText(params.get('car') || carId || 'Unknown_Car')
+    
     const { error } = await supabase.from('pilot_submissions').insert([{ 
       user_name: userName || 'Anonymous', 
       car_id: finalCar, 
@@ -70,7 +74,7 @@ export default function App() {
         <h2 style={{ borderBottom: '2px solid #0070f3', paddingBottom: '10px' }}>
           {isDriverView ? 'My Personal Log' : 'Fleet Management Ledger'}
         </h2>
-        <p style={{ fontSize: '14px', color: '#666' }}>Showing activity for: <strong>{isDriverView || params.get('provider')}</strong></p>
+        <p style={{ fontSize: '14px', color: '#666' }}>Active View: <strong>{cleanText(isDriverView || params.get('provider') || '')}</strong></p>
         <div style={{ marginTop: '20px' }}>
           {history.length === 0 ? <p>No logs found.</p> : history.map((item) => (
             <div key={item.id} style={{ padding: '15px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
@@ -86,7 +90,7 @@ export default function App() {
             </div>
           ))}
         </div>
-        <button onClick={() => window.history.back()} style={{ marginTop: '30px', width: '100%', padding: '15px', borderRadius: '10px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>Back</button>
+        <button onClick={() => window.history.back()} style={{ marginTop: '30px', width: '100%', padding: '20px', borderRadius: '12px', border: '1px solid #ccc', background: '#fff', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>Back</button>
       </div>
     )
   }
@@ -99,43 +103,29 @@ export default function App() {
     
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '900px', margin: '0 auto', color: '#333' }}>
-        <h2 style={{ borderBottom: '2px solid #0070f3', paddingBottom: '10px' }}>🛠 Provider Setup & Management</h2>
-        
+        <h2 style={{ borderBottom: '2px solid #0070f3', paddingBottom: '10px' }}>🛠 Provider Setup</h2>
         <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap', marginTop: '20px' }}>
-          {/* Left Side: Inputs */}
           <div style={{ flex: '1', minWidth: '320px' }}>
             <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '10px', border: '1px solid #ddd' }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Provider's Name</label>
-              <input style={{ width: '100%', padding: '12px', marginBottom: '20px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
-                value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="e.g. Jet Fleet" />
-              
+              <input style={{ width: '100%', padding: '15px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '16px' }} 
+                value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="e.g. Sarah's Car" />
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vehicle Registration</label>
-              <input style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+              <input style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '16px' }} 
                 value={carId} onChange={(e) => setCarId(e.target.value)} placeholder="e.g. AB12 CDE" />
             </div>
-
-            <h3 style={{ marginTop: '30px', marginBottom: '10px' }}>🔗 Unique Tag URL:</h3>
-            <div style={{ background: '#e7f3ff', padding: '15px', wordBreak: 'break-all', borderRadius: '8px', border: '2px dashed #0070f3', fontSize: '15px', color: '#004aab', fontWeight: 'bold' }}>
-              {generatedUrl}
-            </div>
-            
-            <div style={{ marginTop: '30px', padding: '20px', background: '#f0f7ff', borderRadius: '10px', border: '1px solid #0070f3' }}>
-              <h4 style={{ margin: '0 0 10px 0' }}>📊 Manager Access</h4>
-              <p style={{ fontSize: '13px', margin: '0 0 15px 0' }}>Bookmark this link to see your full fleet history:</p>
-              <a href={`${window.location.origin}/?mode=history&provider=${cleanProvider}`} style={{ color: '#0070f3', fontWeight: 'bold', textDecoration: 'none', border: '1px solid #0070f3', padding: '8px 12px', borderRadius: '5px' }}>View My Fleet History →</a>
+            <h3 style={{ marginTop: '30px' }}>🔗 Unique Tag URL:</h3>
+            <div style={{ background: '#e7f3ff', padding: '15px', wordBreak: 'break-all', borderRadius: '8px', border: '2px dashed #0070f3', fontSize: '15px', color: '#004aab', fontWeight: 'bold' }}>{generatedUrl}</div>
+            <div style={{ marginTop: '30px' }}>
+              <a href={`${window.location.origin}/?mode=history&provider=${cleanProvider}`} style={{ display: 'inline-block', background: '#0070f3', color: 'white', padding: '15px 25px', borderRadius: '10px', textDecoration: 'none', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,112,243,0.3)' }}>View Fleet History →</a>
             </div>
           </div>
-
-          {/* Right Side: Preview */}
           <div style={{ flex: '1', minWidth: '300px', textAlign: 'center' }}>
-            <h3 style={{ color: '#888', fontSize: '12px', textTransform: 'uppercase', marginBottom: '15px' }}>Driver's Phone Preview</h3>
-            <div style={{ border: '10px solid #222', borderRadius: '35px', padding: '15px', background: 'white', maxWidth: '280px', margin: '0 auto', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
-                 <div style={{ textAlign: 'center', padding: '10px' }}>
-                    <h2 style={{ color: '#0070f3', margin: '0' }}>{providerId || "Provider's Name"}</h2>
-                    <p style={{ margin: '5px 0', fontSize: '14px', color: '#666' }}>Vehicle: <strong>{carId || "Vehicle Reg"}</strong></p>
-                    <div style={{ height: '40px', background: '#f4f4f4', borderRadius: '8px', margin: '15px 0 10px 0', border: '1px solid #eee' }}></div>
-                    <div style={{ height: '45px', background: '#0070f3', borderRadius: '8px', color: 'white', lineHeight: '45px', fontWeight: 'bold', fontSize: '14px' }}>START TRIP</div>
-                 </div>
+            <h3 style={{ color: '#888', fontSize: '12px', textTransform: 'uppercase' }}>Phone Preview</h3>
+            <div style={{ border: '10px solid #222', borderRadius: '40px', padding: '20px', background: 'white', maxWidth: '280px', margin: '0 auto', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+                <h2 style={{ color: '#0070f3', margin: '0' }}>{providerId || "Sarah's Car"}</h2>
+                <p style={{ margin: '5px 0', color: '#666' }}>{carId || "Reg"}</p>
+                <div style={{ height: '50px', background: '#0070f3', borderRadius: '10px', color: 'white', lineHeight: '50px', fontWeight: 'bold', marginTop: '20px' }}>START TRIP</div>
             </div>
           </div>
         </div>
@@ -144,43 +134,40 @@ export default function App() {
   }
 
   // --- VIEW: DRIVER APP ---
-  const displayProvider = (params.get('provider') || providerId || 'Independent').replace(/_/g, ' ')
-  const displayCar = (params.get('car') || carId || 'V001').replace(/_/g, ' ')
-
   return (
     <div style={{ padding: '40px 20px', textAlign: 'center', fontFamily: 'sans-serif', maxWidth: '400px', margin: '0 auto' }}>
-      <h1 style={{ color: '#0070f3', marginBottom: '5px' }}>{displayProvider}</h1>
-      <p style={{ marginTop: '0', color: '#666' }}>Vehicle: <strong>{displayCar}</strong></p>
+      <h1 style={{ color: '#0070f3', marginBottom: '5px' }}>{cleanText(params.get('provider') || providerId)}</h1>
+      <p style={{ marginTop: '0', color: '#666', fontSize: '18px' }}>Vehicle: <strong>{cleanText(params.get('car') || carId)}</strong></p>
 
       {screen === 'tap' && (
         <div style={{ marginTop: '30px' }}>
-          <input style={{ padding: '15px', width: '100%', marginBottom: '15px', borderRadius: '10px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '16px' }}
-            value={userName} onChange={(e) => { setUserName(e.target.value); localStorage.setItem('tg_user_name', e.target.value); }} placeholder="Your Name" />
+          <input style={{ padding: '20px', width: '100%', marginBottom: '20px', borderRadius: '12px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '18px' }}
+            value={userName} onChange={(e) => { setUserName(e.target.value); localStorage.setItem('tg_user_name', e.target.value); }} placeholder="Enter Your Name" />
           <button disabled={!userName || isSubmitting} onClick={() => recordEvent('trip_started')}
-            style={{ width: '100%', padding: '18px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '18px', cursor: 'pointer' }}>
-            {isSubmitting ? 'Syncing...' : 'Start Trip'}
+            style={{ width: '100%', padding: '25px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,112,243,0.3)' }}>
+            {isSubmitting ? 'Syncing...' : 'START TRIP'}
           </button>
         </div>
       )}
 
       {screen === 'trip' && (
-        <div style={{ backgroundColor: '#f0f7ff', padding: '30px', borderRadius: '20px', border: '2px solid #0070f3', marginTop: '20px' }}>
-          <h2 style={{ color: '#0070f3', marginTop: '0' }}>Trip Active</h2>
-          <p>Logged as: <strong>{userName}</strong></p>
+        <div style={{ backgroundColor: '#f0f7ff', padding: '40px 20px', borderRadius: '25px', border: '3px solid #0070f3', marginTop: '20px' }}>
+          <h2 style={{ color: '#0070f3', marginTop: '0', fontSize: '28px' }}>Trip Active</h2>
+          <p style={{ marginBottom: '30px' }}>Driver: <strong>{userName}</strong></p>
           <button disabled={isSubmitting} onClick={() => recordEvent('trip_ended')} 
-            style={{ width: '100%', padding: '18px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '18px', cursor: 'pointer' }}>
-            End Trip
+            style={{ width: '100%', padding: '25px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(255,77,79,0.3)' }}>
+            END TRIP
           </button>
         </div>
       )}
 
       {screen === 'ended' && (
         <div style={{ marginTop: '30px' }}>
-          <h2 style={{ color: '#28a745' }}>✅ Success</h2>
-          <p>Trip recorded to the ledger.</p>
-          <button onClick={() => setScreen('tap')} style={{ width: '100%', padding: '15px', marginBottom: '10px', borderRadius: '10px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>New Trip</button>
+          <h2 style={{ color: '#28a745', fontSize: '32px' }}>✅ Done!</h2>
+          <p style={{ fontSize: '18px', color: '#666' }}>Your trip is logged.</p>
+          <button onClick={() => setScreen('tap')} style={{ width: '100%', padding: '20px', marginTop: '20px', borderRadius: '12px', border: '2px solid #0070f3', background: '#fff', color: '#0070f3', fontWeight: 'bold', fontSize: '16px' }}>New Trip</button>
           <button onClick={() => window.location.search = `?mode=history&user=${userName}`}
-            style={{ width: '100%', padding: '12px', background: 'none', border: '1px solid #ddd', borderRadius: '10px', color: '#777', fontSize: '14px', cursor: 'pointer' }}>
+            style={{ width: '100%', padding: '15px', marginTop: '15px', background: 'none', border: 'none', color: '#777', textDecoration: 'underline', cursor: 'pointer' }}>
             View My Past Trips
           </button>
         </div>
