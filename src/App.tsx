@@ -17,10 +17,19 @@ export default function App() {
   const [history, setHistory] = useState<any[]>([]) 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Helper to make text look pretty (removes %27, underscores, etc)
   const cleanText = (txt: string) => txt ? decodeURIComponent(txt).replace(/_/g, ' ') : ''
 
   useEffect(() => {
+    // --- DYNAMIC TITLES ---
+    // This changes the name suggested when "Adding to Home Screen"
+    if (mode === 'setup') {
+      document.title = "Fleet Setup"
+    } else if (mode === 'history') {
+      document.title = `${cleanText(params.get('provider') || 'Fleet')} Ledger`
+    } else {
+      document.title = `${cleanText(params.get('car') || 'Car')} Log`
+    }
+
     const savedName = localStorage.getItem('tg_user_name')
     if (savedName) setUserName(savedName)
     if (localStorage.getItem('tg_trip_active') === 'true') setScreen('trip')
@@ -75,6 +84,14 @@ export default function App() {
           {isDriverView ? 'My Personal Log' : 'Fleet Management Ledger'}
         </h2>
         <p style={{ fontSize: '14px', color: '#666' }}>Active View: <strong>{cleanText(isDriverView || params.get('provider') || '')}</strong></p>
+        
+        {/* Help Tip for Providers */}
+        {!isDriverView && (
+          <div style={{ background: '#fff9e6', padding: '10px', borderRadius: '8px', fontSize: '12px', border: '1px solid #ffe58f', marginBottom: '20px' }}>
+            💡 <strong>Tip:</strong> Tap your browser's "Share" or "Menu" button and select <strong>"Add to Home Screen"</strong> to keep this ledger as an app icon.
+          </div>
+        )}
+
         <div style={{ marginTop: '20px' }}>
           {history.length === 0 ? <p>No logs found.</p> : history.map((item) => (
             <div key={item.id} style={{ padding: '15px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
@@ -90,7 +107,7 @@ export default function App() {
             </div>
           ))}
         </div>
-        <button onClick={() => window.history.back()} style={{ marginTop: '30px', width: '100%', padding: '20px', borderRadius: '12px', border: '1px solid #ccc', background: '#fff', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>Back</button>
+        <button onClick={() => window.history.back()} style={{ marginTop: '30px', width: '100%', padding: '20px', borderRadius: '12px', border: '1px solid #ccc', background: '#fff', fontSize: '16px', fontWeight: 'bold' }}>Back</button>
       </div>
     )
   }
@@ -117,7 +134,7 @@ export default function App() {
             <h3 style={{ marginTop: '30px' }}>🔗 Unique Tag URL:</h3>
             <div style={{ background: '#e7f3ff', padding: '15px', wordBreak: 'break-all', borderRadius: '8px', border: '2px dashed #0070f3', fontSize: '15px', color: '#004aab', fontWeight: 'bold' }}>{generatedUrl}</div>
             <div style={{ marginTop: '30px' }}>
-              <a href={`${window.location.origin}/?mode=history&provider=${cleanProvider}`} style={{ display: 'inline-block', background: '#0070f3', color: 'white', padding: '15px 25px', borderRadius: '10px', textDecoration: 'none', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,112,243,0.3)' }}>View Fleet History →</a>
+              <a href={`${window.location.origin}/?mode=history&provider=${cleanProvider}`} style={{ display: 'inline-block', background: '#0070f3', color: 'white', padding: '15px 25px', borderRadius: '10px', textDecoration: 'none', fontWeight: 'bold' }}>View Fleet History →</a>
             </div>
           </div>
           <div style={{ flex: '1', minWidth: '300px', textAlign: 'center' }}>
@@ -144,7 +161,7 @@ export default function App() {
           <input style={{ padding: '20px', width: '100%', marginBottom: '20px', borderRadius: '12px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '18px' }}
             value={userName} onChange={(e) => { setUserName(e.target.value); localStorage.setItem('tg_user_name', e.target.value); }} placeholder="Enter Your Name" />
           <button disabled={!userName || isSubmitting} onClick={() => recordEvent('trip_started')}
-            style={{ width: '100%', padding: '25px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,112,243,0.3)' }}>
+            style={{ width: '100%', padding: '25px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', cursor: 'pointer' }}>
             {isSubmitting ? 'Syncing...' : 'START TRIP'}
           </button>
         </div>
@@ -155,7 +172,7 @@ export default function App() {
           <h2 style={{ color: '#0070f3', marginTop: '0', fontSize: '28px' }}>Trip Active</h2>
           <p style={{ marginBottom: '30px' }}>Driver: <strong>{userName}</strong></p>
           <button disabled={isSubmitting} onClick={() => recordEvent('trip_ended')} 
-            style={{ width: '100%', padding: '25px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(255,77,79,0.3)' }}>
+            style={{ width: '100%', padding: '25px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', cursor: 'pointer' }}>
             END TRIP
           </button>
         </div>
@@ -164,10 +181,9 @@ export default function App() {
       {screen === 'ended' && (
         <div style={{ marginTop: '30px' }}>
           <h2 style={{ color: '#28a745', fontSize: '32px' }}>✅ Done!</h2>
-          <p style={{ fontSize: '18px', color: '#666' }}>Your trip is logged.</p>
           <button onClick={() => setScreen('tap')} style={{ width: '100%', padding: '20px', marginTop: '20px', borderRadius: '12px', border: '2px solid #0070f3', background: '#fff', color: '#0070f3', fontWeight: 'bold', fontSize: '16px' }}>New Trip</button>
           <button onClick={() => window.location.search = `?mode=history&user=${userName}`}
-            style={{ width: '100%', padding: '15px', marginTop: '15px', background: 'none', border: 'none', color: '#777', textDecoration: 'underline', cursor: 'pointer' }}>
+            style={{ width: '100%', padding: '15px', marginTop: '15px', background: 'none', border: 'none', color: '#777', textDecoration: 'underline' }}>
             View My Past Trips
           </button>
         </div>
