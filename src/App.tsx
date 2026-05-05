@@ -11,9 +11,10 @@ export default function App() {
   
   const [providerId, setProviderId] = useState(params.get('provider') || '')
   const [carId, setCarId] = useState(params.get('car') || '')
+  const [userName, setUserName] = useState(localStorage.getItem('tg_user_name') || '')
   const [screen, setScreen] = useState('tap')
-  const [userName, setUserName] = useState('')
-  const [tripCount, setTripCount] = useState(0)
+  const [hasAcceptedAgreement, setHasAcceptedAgreement] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [history, setHistory] = useState<any[]>([]) 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -21,7 +22,6 @@ export default function App() {
 
   useEffect(() => {
     // --- DYNAMIC TITLES ---
-    // This changes the name suggested when "Adding to Home Screen"
     if (mode === 'setup') {
       document.title = "Fleet Setup"
     } else if (mode === 'history') {
@@ -30,22 +30,47 @@ export default function App() {
       document.title = `${cleanText(params.get('car') || 'Car')} Log`
     }
 
-    const savedName = localStorage.getItem('tg_user_name')
-    if (savedName) setUserName(savedName)
     if (localStorage.getItem('tg_trip_active') === 'true') setScreen('trip')
     
-    if (mode === 'history') fetchHistory()
-    else fetchTripCount()
-  }, [carId, mode])
+    if (mode === 'history') {
+      fetchHistory()
+    } else if (userName && carId) {
+      checkAgreementStatus()
+    } else {
+      setIsLoading(false)
+    }
+  }, [userName, carId, mode])
 
-  async function fetchTripCount() {
-    const activeCar = params.get('car') || carId
-    if (!activeCar) return
-    const { count, error } = await supabase.from('pilot_submissions').select('*', { count: 'exact', head: true }).eq('car_id', activeCar)
-    if (!error && count !== null) setTripCount(count)
+  async function checkAgreementStatus() {
+    setIsLoading(true)
+    const { data, error } = await supabase
+      .from('pilot_agreements')
+      .select('*')
+      .eq('user_name', userName)
+      .eq('car_id', carId)
+    
+    if (!error && data && data.length > 0) {
+      setHasAcceptedAgreement(true)
+    }
+    setIsLoading(false)
+  }
+
+  async function recordAgreement() {
+    setIsSubmitting(true)
+    const { error } = await supabase.from('pilot_agreements').insert([{ 
+      user_name: userName, 
+      car_id: carId, 
+      provider_id: providerId || 'Independent'
+    }])
+    
+    if (!error) {
+      setHasAcceptedAgreement(true)
+    }
+    setIsSubmitting(false)
   }
 
   async function fetchHistory() {
+    setIsLoading(true)
     const activeProvider = params.get('provider')
     const activeUser = params.get('user')
     let query = supabase.from('pilot_submissions').select('*').order('created_at', { ascending: false }).limit(30)
@@ -53,6 +78,7 @@ export default function App() {
     if (activeUser) query = query.eq('user_name', decodeURIComponent(activeUser))
     const { data, error } = await query
     if (!error) setHistory(data || [])
+    setIsLoading(false)
   }
 
   async function recordEvent(actionType: string) {
@@ -69,123 +95,112 @@ export default function App() {
     if (!error) {
       if (actionType === 'trip_started') localStorage.setItem('tg_trip_active', 'true')
       else localStorage.removeItem('tg_trip_active')
-      setTimeout(() => fetchTripCount(), 500)
       setScreen(actionType === 'trip_started' ? 'trip' : 'ended')
     }
     setIsSubmitting(false)
   }
 
-  // --- VIEW: HISTORY LEDGER ---
-  if (mode === 'history') {
-    const isDriverView = params.get('user')
-    return (
-      <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '600px', margin: '0 auto', color: '#333' }}>
-        <h2 style={{ borderBottom: '2px solid #0070f3', paddingBottom: '10px' }}>
-          {isDriverView ? 'My Personal Log' : 'Fleet Management Ledger'}
-        </h2>
-        <p style={{ fontSize: '14px', color: '#666' }}>Active View: <strong>{cleanText(isDriverView || params.get('provider') || '')}</strong></p>
-        
-        {/* Help Tip for Providers */}
-        {!isDriverView && (
-          <div style={{ background: '#fff9e6', padding: '10px', borderRadius: '8px', fontSize: '12px', border: '1px solid #ffe58f', marginBottom: '20px' }}>
-            💡 <strong>Tip:</strong> Tap your browser's "Share" or "Menu" button and select <strong>"Add to Home Screen"</strong> to keep this ledger as an app icon.
-          </div>
-        )}
+  if (isLoading) {
+    return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Loading Fleet Data...</div>
+  }
 
-        <div style={{ marginTop: '20px' }}>
-          {history.length === 0 ? <p>No logs found.</p> : history.map((item) => (
-            <div key={item.id} style={{ padding: '15px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 'bold', color: item.action === 'trip_started' ? '#28a745' : '#ff4d4f' }}>
-                  {item.action === 'trip_started' ? '🟢 Started' : '🔴 Ended'}
-                </div>
-                <div style={{ fontSize: '12px', color: '#888' }}>{item.car_id} • {item.user_name}</div>
-              </div>
-              <div style={{ textAlign: 'right', fontSize: '12px', color: '#666' }}>
-                {new Date(item.created_at).toLocaleDateString()}<br/>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
-          ))}
-        </div>
-        <button onClick={() => window.history.back()} style={{ marginTop: '30px', width: '100%', padding: '20px', borderRadius: '12px', border: '1px solid #ccc', background: '#fff', fontSize: '16px', fontWeight: 'bold' }}>Back</button>
+  // --- VIEW: HISTORY ---
+  if (mode === 'history') {
+    return (
+      <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '600px', margin: '0 auto' }}>
+        <h2>Fleet Ledger</h2>
+        {history.map((item) => (
+          <div key={item.id} style={{ padding: '10px 0', borderBottom: '1px solid #eee' }}>
+            <strong>{item.user_name}</strong> {item.action === 'trip_started' ? '🟢 Started' : '🔴 Ended'} trip on {item.car_id}
+            <div style={{ fontSize: '12px', color: '#888' }}>{new Date(item.created_at).toLocaleString()}</div>
+          </div>
+        ))}
       </div>
     )
   }
 
   // --- VIEW: SETUP TOOL ---
   if (mode === 'setup') {
-    const cleanProvider = providerId.trim().replace(/\s+/g, '_') || 'Owner'
-    const cleanCar = carId.trim().replace(/\s+/g, '_') || 'Reg'
-    const generatedUrl = `${window.location.origin}/?provider=${cleanProvider}&car=${cleanCar}`
-    
+    const generatedUrl = `${window.location.origin}/?provider=${providerId.replace(/\s+/g, '_')}&car=${carId.replace(/\s+/g, '_')}`
     return (
-      <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '900px', margin: '0 auto', color: '#333' }}>
-        <h2 style={{ borderBottom: '2px solid #0070f3', paddingBottom: '10px' }}>🛠 Provider Setup</h2>
-        <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap', marginTop: '20px' }}>
-          <div style={{ flex: '1', minWidth: '320px' }}>
-            <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '10px', border: '1px solid #ddd' }}>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Provider's Name</label>
-              <input style={{ width: '100%', padding: '15px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '16px' }} 
-                value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="e.g. Sarah's Car" />
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vehicle Registration</label>
-              <input style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '16px' }} 
-                value={carId} onChange={(e) => setCarId(e.target.value)} placeholder="e.g. AB12 CDE" />
-            </div>
-            <h3 style={{ marginTop: '30px' }}>🔗 Unique Tag URL:</h3>
-            <div style={{ background: '#e7f3ff', padding: '15px', wordBreak: 'break-all', borderRadius: '8px', border: '2px dashed #0070f3', fontSize: '15px', color: '#004aab', fontWeight: 'bold' }}>{generatedUrl}</div>
-            <div style={{ marginTop: '30px' }}>
-              <a href={`${window.location.origin}/?mode=history&provider=${cleanProvider}`} style={{ display: 'inline-block', background: '#0070f3', color: 'white', padding: '15px 25px', borderRadius: '10px', textDecoration: 'none', fontWeight: 'bold' }}>View Fleet History →</a>
-            </div>
-          </div>
-          <div style={{ flex: '1', minWidth: '300px', textAlign: 'center' }}>
-            <h3 style={{ color: '#888', fontSize: '12px', textTransform: 'uppercase' }}>Phone Preview</h3>
-            <div style={{ border: '10px solid #222', borderRadius: '40px', padding: '20px', background: 'white', maxWidth: '280px', margin: '0 auto', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
-                <h2 style={{ color: '#0070f3', margin: '0' }}>{providerId || "Sarah's Car"}</h2>
-                <p style={{ margin: '5px 0', color: '#666' }}>{carId || "Reg"}</p>
-                <div style={{ height: '50px', background: '#0070f3', borderRadius: '10px', color: 'white', lineHeight: '50px', fontWeight: 'bold', marginTop: '20px' }}>START TRIP</div>
-            </div>
-          </div>
-        </div>
+      <div style={{ padding: '40px 20px', fontFamily: 'sans-serif', maxWidth: '500px', margin: '0 auto' }}>
+        <h1>🛠 Transport Group Setup</h1>
+        <label>Provider Name</label>
+        <input style={{ width: '100%', padding: '15px', marginBottom: '20px' }} value={providerId} onChange={(e) => setProviderId(e.target.value)} />
+        <label>Vehicle Registration</label>
+        <input style={{ width: '100%', padding: '15px', marginBottom: '20px' }} value={carId} onChange={(e) => setCarId(e.target.value)} />
+        <h3>Your Unique Tag URL:</h3>
+        <div style={{ background: '#eee', padding: '15px', wordBreak: 'break-all', borderRadius: '8px' }}>{generatedUrl}</div>
       </div>
     )
   }
 
-  // --- VIEW: DRIVER APP ---
+  // --- VIEW: DRIVER MODE ---
   return (
     <div style={{ padding: '40px 20px', textAlign: 'center', fontFamily: 'sans-serif', maxWidth: '400px', margin: '0 auto' }}>
-      <h1 style={{ color: '#0070f3', marginBottom: '5px' }}>{cleanText(params.get('provider') || providerId)}</h1>
-      <p style={{ marginTop: '0', color: '#666', fontSize: '18px' }}>Vehicle: <strong>{cleanText(params.get('car') || carId)}</strong></p>
+      <h1 style={{ color: '#0070f3' }}>{cleanText(params.get('provider') || providerId)}</h1>
+      <p>Vehicle: <strong>{cleanText(params.get('car') || carId)}</strong></p>
 
-      {screen === 'tap' && (
-        <div style={{ marginTop: '30px' }}>
-          <input style={{ padding: '20px', width: '100%', marginBottom: '20px', borderRadius: '12px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '18px' }}
-            value={userName} onChange={(e) => { setUserName(e.target.value); localStorage.setItem('tg_user_name', e.target.value); }} placeholder="Enter Your Name" />
-          <button disabled={!userName || isSubmitting} onClick={() => recordEvent('trip_started')}
-            style={{ width: '100%', padding: '25px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', cursor: 'pointer' }}>
-            {isSubmitting ? 'Syncing...' : 'START TRIP'}
+      {/* 1. NAME ENTRY */}
+      {!userName && (
+        <div style={{ marginTop: '20px' }}>
+          <input 
+            style={{ padding: '20px', width: '100%', borderRadius: '12px', border: '1px solid #ccc', fontSize: '18px' }}
+            placeholder="Enter Your Name"
+            onBlur={(e) => {
+              setUserName(e.target.value);
+              localStorage.setItem('tg_user_name', e.target.value);
+            }} 
+          />
+          <p style={{ fontSize: '12px', color: '#888', marginTop: '10px' }}>Enter your name to join this Transport Group.</p>
+        </div>
+      )}
+
+      {/* 2. AGREEMENT SCREEN */}
+      {userName && !hasAcceptedAgreement && (
+        <div style={{ textAlign: 'left', background: '#f9f9f9', padding: '20px', borderRadius: '15px', border: '1px solid #ddd' }}>
+          <h3 style={{ marginTop: 0 }}>Core Driver Agreement</h3>
+          <p style={{ fontSize: '14px' }}>Welcome <strong>{userName}</strong>. Before driving, please agree to the following:</p>
+          <ul style={{ fontSize: '13px', paddingLeft: '20px' }}>
+            <li><strong>PPU & Pot:</strong> I agree that part of my fee goes to the repair pot.</li>
+            <li><strong>£4k Cap:</strong> Shared costs are capped at £4,000 per year.</li>
+            <li><strong>Shortfall:</strong> I agree to share the cost of emergency repairs if the pot is empty.</li>
+          </ul>
+          <button 
+            disabled={isSubmitting}
+            onClick={recordAgreement}
+            style={{ width: '100%', padding: '15px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold' }}>
+            {isSubmitting ? 'Joining...' : 'I AGREE & JOIN'}
           </button>
         </div>
       )}
 
-      {screen === 'trip' && (
-        <div style={{ backgroundColor: '#f0f7ff', padding: '40px 20px', borderRadius: '25px', border: '3px solid #0070f3', marginTop: '20px' }}>
-          <h2 style={{ color: '#0070f3', marginTop: '0', fontSize: '28px' }}>Trip Active</h2>
-          <p style={{ marginBottom: '30px' }}>Driver: <strong>{userName}</strong></p>
-          <button disabled={isSubmitting} onClick={() => recordEvent('trip_ended')} 
-            style={{ width: '100%', padding: '25px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', cursor: 'pointer' }}>
-            END TRIP
-          </button>
-        </div>
-      )}
-
-      {screen === 'ended' && (
+      {/* 3. TRIP LOGGING */}
+      {userName && hasAcceptedAgreement && (
         <div style={{ marginTop: '30px' }}>
-          <h2 style={{ color: '#28a745', fontSize: '32px' }}>✅ Done!</h2>
-          <button onClick={() => setScreen('tap')} style={{ width: '100%', padding: '20px', marginTop: '20px', borderRadius: '12px', border: '2px solid #0070f3', background: '#fff', color: '#0070f3', fontWeight: 'bold', fontSize: '16px' }}>New Trip</button>
-          <button onClick={() => window.location.search = `?mode=history&user=${userName}`}
-            style={{ width: '100%', padding: '15px', marginTop: '15px', background: 'none', border: 'none', color: '#777', textDecoration: 'underline' }}>
-            View My Past Trips
-          </button>
+          {screen === 'tap' && (
+            <button disabled={isSubmitting} onClick={() => recordEvent('trip_started')}
+              style={{ width: '100%', padding: '30px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '20px', fontWeight: 'bold', fontSize: '24px' }}>
+              START TRIP
+            </button>
+          )}
+
+          {screen === 'trip' && (
+            <div style={{ padding: '30px', borderRadius: '20px', border: '3px solid #0070f3' }}>
+              <h2 style={{ color: '#0070f3' }}>Trip Active</h2>
+              <button disabled={isSubmitting} onClick={() => recordEvent('trip_ended')} 
+                style={{ width: '100%', padding: '30px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px' }}>
+                END TRIP
+              </button>
+            </div>
+          )}
+
+          {screen === 'ended' && (
+            <div>
+              <h2 style={{ color: '#28a745' }}>Trip Saved! ✅</h2>
+              <button onClick={() => setScreen('tap')} style={{ width: '100%', padding: '15px', borderRadius: '12px', border: '2px solid #0070f3', background: '#fff', color: '#0070f3' }}>New Trip</button>
+            </div>
+          )}
         </div>
       )}
     </div>
