@@ -70,16 +70,25 @@ export default function App() {
   }
 
   async function fetchHistory() {
-    setIsLoading(true)
-    const activeProvider = params.get('provider')
-    const activeUser = params.get('user')
-    let query = supabase.from('pilot_submissions').select('*').order('created_at', { ascending: false }).limit(30)
-    if (activeProvider) query = query.eq('provider_id', decodeURIComponent(activeProvider))
-    if (activeUser) query = query.eq('user_name', decodeURIComponent(activeUser))
-    const { data, error } = await query
-    if (!error) setHistory(data || [])
-    setIsLoading(false)
+  setIsLoading(true)
+  const activeProvider = params.get('provider')
+  
+  // Start the base query
+  let query = supabase.from('pilot_submissions').select('*').order('created_at', { ascending: false }).limit(30)
+  
+  // Use 'ilike' instead of 'eq' for case-insensitive matching
+  if (activeProvider) {
+    query = query.ilike('provider_id', decodeURIComponent(activeProvider))
   }
+  
+  const { data, error } = await query
+  if (error) {
+    console.error("Error fetching history:", error)
+  } else {
+    setHistory(data || [])
+  }
+  setIsLoading(false)
+}
 
   async function recordEvent(actionType: string) {
     setIsSubmitting(true)
