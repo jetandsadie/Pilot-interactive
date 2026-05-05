@@ -17,8 +17,25 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [history, setHistory] = useState<any[]>([]) 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Meter states
+  const [secondsActive, setSecondsActive] = useState(0)
+  const PPU_RATE = 0.45 // £0.45 per minute for testing
 
   const cleanText = (txt: string) => txt ? decodeURIComponent(txt).replace(/_/g, ' ') : ''
+
+  // Run the live meter timer
+  useEffect(() => {
+    let interval: any
+    if (screen === 'trip') {
+      interval = setInterval(() => {
+        setSecondsActive((s) => s + 1)
+      }, 1000)
+    } else {
+      setSecondsActive(0)
+    }
+    return () => clearInterval(interval)
+  }, [screen])
 
   useEffect(() => {
     // --- DYNAMIC TITLES ---
@@ -70,25 +87,24 @@ export default function App() {
   }
 
   async function fetchHistory() {
-  setIsLoading(true)
-  const activeProvider = params.get('provider')
-  
-  // Start the base query
-  let query = supabase.from('pilot_submissions').select('*').order('created_at', { ascending: false }).limit(30)
-  
-  // Use 'ilike' instead of 'eq' for case-insensitive matching
-  if (activeProvider) {
-    query = query.ilike('provider_id', decodeURIComponent(activeProvider))
+    setIsLoading(true)
+    const activeProvider = params.get('provider')
+    
+    let query = supabase.from('pilot_submissions').select('*').order('created_at', { ascending: false }).limit(30)
+    
+    // Use ilike for case-insensitive matching
+    if (activeProvider) {
+      query = query.ilike('provider_id', decodeURIComponent(activeProvider))
+    }
+    
+    const { data, error } = await query
+    if (error) {
+      console.error("Error fetching history:", error)
+    } else {
+      setHistory(data || [])
+    }
+    setIsLoading(false)
   }
-  
-  const { data, error } = await query
-  if (error) {
-    console.error("Error fetching history:", error)
-  } else {
-    setHistory(data || [])
-  }
-  setIsLoading(false)
-}
 
   async function recordEvent(actionType: string) {
     setIsSubmitting(true)
@@ -157,8 +173,8 @@ export default function App() {
             style={{ padding: '20px', width: '100%', borderRadius: '12px', border: '1px solid #ccc', fontSize: '18px' }}
             placeholder="Enter Your Name"
             onBlur={(e) => {
-              setUserName(e.target.value);
-              localStorage.setItem('tg_user_name', e.target.value);
+              setUserName(e.target.value)
+              localStorage.setItem('tg_user_name', e.target.value)
             }} 
           />
           <p style={{ fontSize: '12px', color: '#888', marginTop: '10px' }}>Enter your name to join this Transport Group.</p>
@@ -195,10 +211,15 @@ export default function App() {
           )}
 
           {screen === 'trip' && (
-            <div style={{ padding: '30px', borderRadius: '20px', border: '3px solid #0070f3' }}>
-              <h2 style={{ color: '#0070f3' }}>Trip Active</h2>
+            <div style={{ padding: '30px', borderRadius: '20px', border: '3px solid #0070f3', backgroundColor: '#f0f7ff' }}>
+              <h2 style={{ color: '#0070f3', margin: '0' }}>Trip Active</h2>
+              <div style={{ fontSize: '48px', fontWeight: 'bold', margin: '20px 0' }}>
+                £{((secondsActive / 60) * PPU_RATE).toFixed(2)}
+              </div>
+              <p style={{ color: '#666' }}>Time: {Math.floor(secondsActive / 60)}m {secondsActive % 60}s</p>
+              
               <button disabled={isSubmitting} onClick={() => recordEvent('trip_ended')} 
-                style={{ width: '100%', padding: '30px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px' }}>
+                style={{ width: '100%', padding: '30px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', boxShadow: '0 4px 14px 0 rgba(255,77,79,0.39)' }}>
                 END TRIP
               </button>
             </div>
