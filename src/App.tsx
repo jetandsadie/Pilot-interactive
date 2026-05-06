@@ -133,7 +133,10 @@ async function recordEvent(actionType: string) {
     }
     setIsSubmitting(false);
   }
-
+// A simple fake payment delay for the simulation
+  async function simulateSandboxPayment() {
+    return new Promise((resolve) => setTimeout(resolve, 1500));
+  }
   if (isLoading) {
     return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Loading Fleet Data...</div>
   }
