@@ -106,23 +106,32 @@ export default function App() {
     setIsLoading(false)
   }
 
-  async function recordEvent(actionType: string) {
-    setIsSubmitting(true)
-    const finalProvider = cleanText(params.get('provider') || providerId || 'Independent')
-    const finalCar = cleanText(params.get('car') || carId || 'Unknown_Car')
+async function recordEvent(actionType: string) {
+    setIsSubmitting(true);
+    const finalProvider = cleanText(params.get('provider') || providerId || 'Independent');
+    const finalCar = cleanText(params.get('car') || carId || 'Unknown_Car');
     
     const { error } = await supabase.from('pilot_submissions').insert([{ 
       user_name: userName || 'Anonymous', 
       car_id: finalCar, 
       provider_id: finalProvider, 
-      action: actionType 
-    }])
-    if (!error) {
-      if (actionType === 'trip_started') localStorage.setItem('tg_trip_active', 'true')
-      else localStorage.removeItem('tg_trip_active')
-      setScreen(actionType === 'trip_started' ? 'trip' : 'ended')
+      action: actionType,
+      public_id: null // Tell Supabase to use the default generator
+    }]);
+
+    if (error) {
+      console.error("Submission Error Details:", error);
+      alert("Error saving data: " + JSON.stringify(error));
+    } else {
+      if (actionType === 'trip_started') {
+        localStorage.setItem('tg_trip_active', 'true');
+      } else {
+        localStorage.removeItem('tg_trip_active');
+        await simulateSandboxPayment();
+      }
+      setScreen(actionType === 'trip_started' ? 'trip' : 'ended');
     }
-    setIsSubmitting(false)
+    setIsSubmitting(false);
   }
 
   if (isLoading) {
