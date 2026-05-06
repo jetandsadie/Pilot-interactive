@@ -115,8 +115,8 @@ async function recordEvent(actionType: string) {
       user_name: userName || 'Anonymous', 
       car_id: finalCar, 
       provider_id: finalProvider, 
-      action: actionType,
-      public_id: null // Tell Supabase to use the default generator
+      action: actionType 
+      // Notice: public_id is completely gone from here now
     }]);
 
     if (error) {
