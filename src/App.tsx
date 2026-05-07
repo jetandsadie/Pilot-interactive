@@ -230,4 +230,29 @@ export default function App() {
           )}
 
           {screen === 'trip' && (
-            <div style={{ padding: '30px', borderRadius: '20px', border: '3px solid #0070f3', backgroundColor: '#f0f7ff
+            <div style={{ padding: '30px', borderRadius: '20px', border: '3px solid #0070f3', backgroundColor: '#f0f7ff' }}>
+              <h2 style={{ color: '#0070f3', margin: '0' }}>Trip Active</h2>
+              <div style={{ fontSize: '48px', fontWeight: 'bold', margin: '20px 0' }}>
+                £{((secondsActive / 60) * PPU_RATE).toFixed(2)}
+              </div>
+              <p style={{ color: '#666' }}>Time: {Math.floor(secondsActive / 60)}m {secondsActive % 60}s</p>
+              
+              <button disabled={isSubmitting} onClick={() => recordEvent('trip_ended')} 
+                style={{ width: '100%', padding: '30px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', boxShadow: '0 4px 14px 0 rgba(255,77,79,0.39)' }}>
+                {isSubmitting ? 'Processing...' : 'END TRIP'}
+              </button>
+            </div>
+          )}
+
+          {screen === 'ended' && (
+            <div>
+              <h2 style={{ color: '#28a745' }}>Redirecting to Payment... ✅</h2>
+              <p>If you aren't redirected, please check your internet connection.</p>
+              <button onClick={() => setScreen('tap')} style={{ width: '100%', padding: '15px', borderRadius: '12px', border: '2px solid #0070f3', background: '#fff', color: '#0070f3' }}>New Trip</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
