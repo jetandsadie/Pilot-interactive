@@ -137,7 +137,7 @@ export default function App() {
   // --- STRIPE REDIRECT LOGIC ---
   async function simulateSandboxPayment() {
     // PASTE YOUR STRIPE LINK BETWEEN THE QUOTES BELOW
-    const stripeLink = "https://buy.stripe.com/test_your_actual_link_here";
+    const stripeLink = "https://buy.stripe.com/test_8x2bJ285mczG9gU6wM3cc01";
     
     return new Promise((resolve) => {
       setTimeout(() => {
