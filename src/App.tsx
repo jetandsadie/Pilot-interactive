@@ -92,12 +92,11 @@ export default function App() {
     
     let query = supabase.from('pilot_submissions').select('*').order('created_at', { ascending: false }).limit(30)
     
-    // Use ilike for case-insensitive matching
     if (activeProvider) {
       query = query.ilike('provider_id', decodeURIComponent(activeProvider))
     }
     
-    const { data, error } = await query
+    const { data, error } = query
     if (error) {
       console.error("Error fetching history:", error)
     } else {
@@ -106,7 +105,7 @@ export default function App() {
     setIsLoading(false)
   }
 
-async function recordEvent(actionType: string) {
+  async function recordEvent(actionType: string) {
     setIsSubmitting(true);
     const finalProvider = cleanText(params.get('provider') || providerId || 'Independent');
     const finalCar = cleanText(params.get('car') || carId || 'Unknown_Car');
@@ -116,7 +115,6 @@ async function recordEvent(actionType: string) {
       car_id: finalCar, 
       provider_id: finalProvider, 
       action: actionType 
-      // Notice: public_id is completely gone from here now
     }]);
 
     if (error) {
@@ -125,23 +123,37 @@ async function recordEvent(actionType: string) {
     } else {
       if (actionType === 'trip_started') {
         localStorage.setItem('tg_trip_active', 'true');
+        setScreen('trip');
       } else {
         localStorage.removeItem('tg_trip_active');
+        // This triggers the Stripe redirect
         await simulateSandboxPayment();
+        setScreen('ended');
       }
-      setScreen(actionType === 'trip_started' ? 'trip' : 'ended');
     }
     setIsSubmitting(false);
   }
-// A simple fake payment delay for the simulation
+
+  // --- STRIPE REDIRECT LOGIC ---
   async function simulateSandboxPayment() {
-    return new Promise((resolve) => setTimeout(resolve, 1500));
+    // PASTE YOUR STRIPE LINK BETWEEN THE QUOTES BELOW
+    const stripeLink = "https://buy.stripe.com/test_your_actual_link_here";
+    
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Only redirect if a link was actually provided
+        if (stripeLink.includes("test_")) {
+          window.location.href = stripeLink;
+        }
+        resolve(true);
+      }, 1500);
+    });
   }
+
   if (isLoading) {
     return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Loading Fleet Data...</div>
   }
 
-  // --- VIEW: HISTORY ---
   if (mode === 'history') {
     return (
       <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '600px', margin: '0 auto' }}>
@@ -156,7 +168,6 @@ async function recordEvent(actionType: string) {
     )
   }
 
-  // --- VIEW: SETUP TOOL ---
   if (mode === 'setup') {
     const generatedUrl = `${window.location.origin}/?provider=${providerId.replace(/\s+/g, '_')}&car=${carId.replace(/\s+/g, '_')}`
     return (
@@ -172,13 +183,11 @@ async function recordEvent(actionType: string) {
     )
   }
 
-  // --- VIEW: DRIVER MODE ---
   return (
     <div style={{ padding: '40px 20px', textAlign: 'center', fontFamily: 'sans-serif', maxWidth: '400px', margin: '0 auto' }}>
       <h1 style={{ color: '#0070f3' }}>{cleanText(params.get('provider') || providerId)}</h1>
       <p>Vehicle: <strong>{cleanText(params.get('car') || carId)}</strong></p>
 
-      {/* 1. NAME ENTRY */}
       {!userName && (
         <div style={{ marginTop: '20px' }}>
           <input 
@@ -193,7 +202,6 @@ async function recordEvent(actionType: string) {
         </div>
       )}
 
-      {/* 2. AGREEMENT SCREEN */}
       {userName && !hasAcceptedAgreement && (
         <div style={{ textAlign: 'left', background: '#f9f9f9', padding: '20px', borderRadius: '15px', border: '1px solid #ddd' }}>
           <h3 style={{ marginTop: 0 }}>Core Driver Agreement</h3>
@@ -212,7 +220,6 @@ async function recordEvent(actionType: string) {
         </div>
       )}
 
-      {/* 3. TRIP LOGGING */}
       {userName && hasAcceptedAgreement && (
         <div style={{ marginTop: '30px' }}>
           {screen === 'tap' && (
@@ -223,28 +230,4 @@ async function recordEvent(actionType: string) {
           )}
 
           {screen === 'trip' && (
-            <div style={{ padding: '30px', borderRadius: '20px', border: '3px solid #0070f3', backgroundColor: '#f0f7ff' }}>
-              <h2 style={{ color: '#0070f3', margin: '0' }}>Trip Active</h2>
-              <div style={{ fontSize: '48px', fontWeight: 'bold', margin: '20px 0' }}>
-                £{((secondsActive / 60) * PPU_RATE).toFixed(2)}
-              </div>
-              <p style={{ color: '#666' }}>Time: {Math.floor(secondsActive / 60)}m {secondsActive % 60}s</p>
-              
-              <button disabled={isSubmitting} onClick={() => recordEvent('trip_ended')} 
-                style={{ width: '100%', padding: '30px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', boxShadow: '0 4px 14px 0 rgba(255,77,79,0.39)' }}>
-                END TRIP
-              </button>
-            </div>
-          )}
-
-          {screen === 'ended' && (
-            <div>
-              <h2 style={{ color: '#28a745' }}>Trip Saved! ✅</h2>
-              <button onClick={() => setScreen('tap')} style={{ width: '100%', padding: '15px', borderRadius: '12px', border: '2px solid #0070f3', background: '#fff', color: '#0070f3' }}>New Trip</button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
+            <div style={{ padding: '30px', borderRadius: '20px', border: '3px solid #0070f3', backgroundColor: '#f0f7ff
