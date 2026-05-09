@@ -18,239 +18,176 @@ export default function App() {
   const [history, setHistory] = useState<any[]>([]) 
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  // Meter states
-  const [secondsActive, setSecondsActive] = useState(0)
-  const PPU_RATE = 0.45 // £0.45 per minute for testing
+  // --- ACCOUNTANT STATES ---
+  const [milesInput, setMilesInput] = useState<string>('')
+  const PPU_RATE = 0.50 // £0.50 per mile
+  const MONTHLY_TARGET = 333 // £333 owner floor
+  const [monthlyTotal, setMonthlyTotal] = useState(0) // Cumulative £ this month
 
   const cleanText = (txt: string) => txt ? decodeURIComponent(txt).replace(/_/g, ' ') : ''
 
-  // Run the live meter timer
   useEffect(() => {
-    let interval: any
-    if (screen === 'trip') {
-      interval = setInterval(() => {
-        setSecondsActive((s) => s + 1)
-      }, 1000)
-    } else {
-      setSecondsActive(0)
-    }
-    return () => clearInterval(interval)
-  }, [screen])
+    // Set Page Title
+    document.title = mode === 'history' ? "Fleet Ledger" : "Transport Group";
 
-  useEffect(() => {
-    // --- DYNAMIC TITLES ---
-    if (mode === 'setup') {
-      document.title = "Fleet Setup"
-    } else if (mode === 'history') {
-      document.title = `${cleanText(params.get('provider') || 'Fleet')} Ledger`
-    } else {
-      document.title = `${cleanText(params.get('car') || 'Car')} Log`
-    }
-
-    if (localStorage.getItem('tg_trip_active') === 'true') setScreen('trip')
-    
     if (mode === 'history') {
       fetchHistory()
     } else if (userName && carId) {
       checkAgreementStatus()
+      fetchMonthlyProgress()
     } else {
       setIsLoading(false)
     }
   }, [userName, carId, mode])
 
+  // Fetch how much this car has earned this month
+  async function fetchMonthlyProgress() {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0,0,0,0);
+
+    const { data } = await supabase
+      .from('pilot_submissions')
+      .select('miles_driven')
+      .eq('car_id', cleanText(carId))
+      .gte('created_at', startOfMonth.toISOString());
+
+    if (data) {
+      const totalMiles = data.reduce((sum, row) => sum + (Number(row.miles_driven) || 0), 0);
+      setMonthlyTotal(totalMiles * PPU_RATE);
+    }
+  }
+
   async function checkAgreementStatus() {
     setIsLoading(true)
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('pilot_agreements')
       .select('*')
       .eq('user_name', userName)
       .eq('car_id', carId)
     
-    if (!error && data && data.length > 0) {
-      setHasAcceptedAgreement(true)
-    }
+    if (data && data.length > 0) setHasAcceptedAgreement(true)
     setIsLoading(false)
   }
 
   async function recordAgreement() {
     setIsSubmitting(true)
-    const { error } = await supabase.from('pilot_agreements').insert([{ 
+    await supabase.from('pilot_agreements').insert([{ 
       user_name: userName, 
       car_id: carId, 
       provider_id: providerId || 'Independent'
     }])
-    
-    if (!error) {
-      setHasAcceptedAgreement(true)
-    }
+    setHasAcceptedAgreement(true)
     setIsSubmitting(false)
   }
 
   async function fetchHistory() {
     setIsLoading(true)
-    const activeProvider = params.get('provider')
+    const { data } = await supabase
+      .from('pilot_submissions')
+      .select('*')
+      .ilike('provider_id', cleanText(params.get('provider') || ''))
+      .order('created_at', { ascending: false })
+      .limit(30)
     
-    let query = supabase.from('pilot_submissions').select('*').order('created_at', { ascending: false }).limit(30)
-    
-    if (activeProvider) {
-      query = query.ilike('provider_id', decodeURIComponent(activeProvider))
-    }
-    
-    const { data, error } = query
-    if (error) {
-      console.error("Error fetching history:", error)
-    } else {
-      setHistory(data || [])
-    }
+    setHistory(data || [])
     setIsLoading(false)
   }
 
-  async function recordEvent(actionType: string) {
-    setIsSubmitting(true);
-    const finalProvider = cleanText(params.get('provider') || providerId || 'Independent');
-    const finalCar = cleanText(params.get('car') || carId || 'Unknown_Car');
+  async function submitTrip() {
+    if (!milesInput || isNaN(Number(milesInput))) return alert("Please enter valid miles");
     
+    setIsSubmitting(true);
+    const miles = Number(milesInput);
+    const totalCost = miles * PPU_RATE;
+
     const { error } = await supabase.from('pilot_submissions').insert([{ 
       user_name: userName || 'Anonymous', 
-      car_id: finalCar, 
-      provider_id: finalProvider, 
-      action: actionType 
+      car_id: cleanText(carId), 
+      provider_id: cleanText(providerId), 
+      action: 'trip_completed',
+      miles_driven: miles,
+      cost_total: totalCost
     }]);
 
-    if (error) {
-      console.error("Submission Error Details:", error);
-      alert("Error saving data: " + JSON.stringify(error));
-    } else {
-      if (actionType === 'trip_started') {
-        localStorage.setItem('tg_trip_active', 'true');
-        setScreen('trip');
-      } else {
-        localStorage.removeItem('tg_trip_active');
-        // This triggers the Stripe redirect
-        await simulateSandboxPayment();
-        setScreen('ended');
-      }
+    if (!error) {
+      // Send to Stripe (Using your £5 link for now as a "Deposit/Fixed Fee")
+      window.location.href = "https://buy.stripe.com/test_8x2bJ285mczG9gU6wM3cc01";
     }
     setIsSubmitting(false);
   }
 
-  // --- STRIPE REDIRECT LOGIC ---
-  async function simulateSandboxPayment() {
-    // PASTE YOUR STRIPE LINK BETWEEN THE QUOTES BELOW
-    const stripeLink = "https://buy.stripe.com/test_8x2bJ285mczG9gU6wM3cc01";
-    
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Only redirect if a link was actually provided
-        if (stripeLink.includes("test_")) {
-          window.location.href = stripeLink;
-        }
-        resolve(true);
-      }, 1500);
-    });
-  }
+  if (isLoading) return <div style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>
 
-  if (isLoading) {
-    return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Loading Fleet Data...</div>
-  }
-
+  // --- VIEW: HISTORY ---
   if (mode === 'history') {
     return (
-      <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '600px', margin: '0 auto' }}>
-        <h2>Fleet Ledger</h2>
+      <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '500px', margin: '0 auto' }}>
+        <h2>{cleanText(params.get('provider') || 'Fleet')} Ledger</h2>
         {history.map((item) => (
           <div key={item.id} style={{ padding: '10px 0', borderBottom: '1px solid #eee' }}>
-            <strong>{item.user_name}</strong> {item.action === 'trip_started' ? '🟢 Started' : '🔴 Ended'} trip on {item.car_id}
-            <div style={{ fontSize: '12px', color: '#888' }}>{new Date(item.created_at).toLocaleString()}</div>
+            <strong>{item.user_name}</strong>: {item.miles_driven} miles (£{(item.miles_driven * PPU_RATE).toFixed(2)})
+            <div style={{ fontSize: '12px', color: '#888' }}>{new Date(item.created_at).toLocaleDateString()}</div>
           </div>
         ))}
       </div>
     )
   }
 
-  if (mode === 'setup') {
-    const generatedUrl = `${window.location.origin}/?provider=${providerId.replace(/\s+/g, '_')}&car=${carId.replace(/\s+/g, '_')}`
-    return (
-      <div style={{ padding: '40px 20px', fontFamily: 'sans-serif', maxWidth: '500px', margin: '0 auto' }}>
-        <h1>🛠 Transport Group Setup</h1>
-        <label>Provider Name</label>
-        <input style={{ width: '100%', padding: '15px', marginBottom: '20px' }} value={providerId} onChange={(e) => setProviderId(e.target.value)} />
-        <label>Vehicle Registration</label>
-        <input style={{ width: '100%', padding: '15px', marginBottom: '20px' }} value={carId} onChange={(e) => setCarId(e.target.value)} />
-        <h3>Your Unique Tag URL:</h3>
-        <div style={{ background: '#eee', padding: '15px', wordBreak: 'break-all', borderRadius: '8px' }}>{generatedUrl}</div>
-      </div>
-    )
-  }
-
   return (
-    <div style={{ padding: '40px 20px', textAlign: 'center', fontFamily: 'sans-serif', maxWidth: '400px', margin: '0 auto' }}>
-      <h1 style={{ color: '#0070f3' }}>{cleanText(params.get('provider') || providerId)}</h1>
-      <p>Vehicle: <strong>{cleanText(params.get('car') || carId)}</strong></p>
+    <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'sans-serif', maxWidth: '400px', margin: '0 auto' }}>
+      <h1 style={{ marginBottom: '5px' }}>{cleanText(providerId)}</h1>
+      <p style={{ marginTop: 0, color: '#666' }}>Vehicle: {cleanText(carId)}</p>
 
-      {!userName && (
-        <div style={{ marginTop: '20px' }}>
+      {/* GAMIFICATION: MONTHLY PROGRESS BAR */}
+      <div style={{ background: '#f0f0f0', borderRadius: '10px', padding: '15px', marginBottom: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
+          <span>Monthly Target: £{MONTHLY_TARGET}</span>
+          <span>{Math.round((monthlyTotal / MONTHLY_TARGET) * 100)}%</span>
+        </div>
+        <div style={{ background: '#ddd', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
+          <div style={{ background: '#0070f3', width: `${Math.min((monthlyTotal / MONTHLY_TARGET) * 100, 100)}%`, height: '100%' }}></div>
+        </div>
+        <p style={{ fontSize: '11px', color: '#888', marginTop: '8px' }}>
+          {monthlyTotal >= MONTHLY_TARGET 
+            ? "✨ Target met! Extra fees now funding the maintenance Pot." 
+            : `£${(MONTHLY_TARGET - monthlyTotal).toFixed(2)} remaining to cover owner floor.`}
+        </p>
+      </div>
+
+      {!userName ? (
+         <input 
+         style={{ padding: '15px', width: '100%', borderRadius: '10px', border: '1px solid #ccc' }}
+         placeholder="Enter Your Name"
+         onBlur={(e) => { setUserName(e.target.value); localStorage.setItem('tg_user_name', e.target.value); }} 
+       />
+      ) : !hasAcceptedAgreement ? (
+        <div style={{ textAlign: 'left', background: '#f9f9f9', padding: '20px', borderRadius: '10px' }}>
+          <h3>Driver Agreement</h3>
+          <p style={{ fontSize: '14px' }}>I agree to the PPU rate and shortfall liability for {cleanText(carId)}.</p>
+          <button onClick={recordAgreement} style={{ width: '100%', padding: '12px', background: '#0070f3', color: 'white', border: 'none', borderRadius: '8px' }}>I AGREE</button>
+        </div>
+      ) : (
+        <div style={{ background: 'white', padding: '20px', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>Miles Driven</label>
           <input 
-            style={{ padding: '20px', width: '100%', borderRadius: '12px', border: '1px solid #ccc', fontSize: '18px' }}
-            placeholder="Enter Your Name"
-            onBlur={(e) => {
-              setUserName(e.target.value)
-              localStorage.setItem('tg_user_name', e.target.value)
-            }} 
+            type="number"
+            value={milesInput}
+            onChange={(e) => setMilesInput(e.target.value)}
+            style={{ width: '100%', padding: '20px', fontSize: '24px', textAlign: 'center', borderRadius: '10px', border: '2px solid #0070f3', marginBottom: '20px' }}
+            placeholder="0"
           />
-          <p style={{ fontSize: '12px', color: '#888', marginTop: '10px' }}>Enter your name to join this Transport Group.</p>
-        </div>
-      )}
+          
+          <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '20px' }}>
+            Fee: £{(Number(milesInput) * PPU_RATE).toFixed(2)}
+          </div>
 
-      {userName && !hasAcceptedAgreement && (
-        <div style={{ textAlign: 'left', background: '#f9f9f9', padding: '20px', borderRadius: '15px', border: '1px solid #ddd' }}>
-          <h3 style={{ marginTop: 0 }}>Core Driver Agreement</h3>
-          <p style={{ fontSize: '14px' }}>Welcome <strong>{userName}</strong>. Before driving, please agree to the following:</p>
-          <ul style={{ fontSize: '13px', paddingLeft: '20px' }}>
-            <li><strong>PPU & Pot:</strong> I agree that part of my fee goes to the repair pot.</li>
-            <li><strong>£4k Cap:</strong> Shared costs are capped at £4,000 per year.</li>
-            <li><strong>Shortfall:</strong> I agree to share the cost of emergency repairs if the pot is empty.</li>
-          </ul>
           <button 
-            disabled={isSubmitting}
-            onClick={recordAgreement}
-            style={{ width: '100%', padding: '15px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold' }}>
-            {isSubmitting ? 'Joining...' : 'I AGREE & JOIN'}
+            disabled={isSubmitting || !milesInput}
+            onClick={submitTrip}
+            style={{ width: '100%', padding: '20px', background: '#0070f3', color: 'white', border: 'none', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold' }}>
+            {isSubmitting ? 'Processing...' : 'CONFIRM & PAY'}
           </button>
-        </div>
-      )}
-
-      {userName && hasAcceptedAgreement && (
-        <div style={{ marginTop: '30px' }}>
-          {screen === 'tap' && (
-            <button disabled={isSubmitting} onClick={() => recordEvent('trip_started')}
-              style={{ width: '100%', padding: '30px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '20px', fontWeight: 'bold', fontSize: '24px' }}>
-              START TRIP
-            </button>
-          )}
-
-          {screen === 'trip' && (
-            <div style={{ padding: '30px', borderRadius: '20px', border: '3px solid #0070f3', backgroundColor: '#f0f7ff' }}>
-              <h2 style={{ color: '#0070f3', margin: '0' }}>Trip Active</h2>
-              <div style={{ fontSize: '48px', fontWeight: 'bold', margin: '20px 0' }}>
-                £{((secondsActive / 60) * PPU_RATE).toFixed(2)}
-              </div>
-              <p style={{ color: '#666' }}>Time: {Math.floor(secondsActive / 60)}m {secondsActive % 60}s</p>
-              
-              <button disabled={isSubmitting} onClick={() => recordEvent('trip_ended')} 
-                style={{ width: '100%', padding: '30px', backgroundColor: '#ff4d4f', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '20px', boxShadow: '0 4px 14px 0 rgba(255,77,79,0.39)' }}>
-                {isSubmitting ? 'Processing...' : 'END TRIP'}
-              </button>
-            </div>
-          )}
-
-          {screen === 'ended' && (
-            <div>
-              <h2 style={{ color: '#28a745' }}>Redirecting to Payment... ✅</h2>
-              <p>If you aren't redirected, please check your internet connection.</p>
-              <button onClick={() => setScreen('tap')} style={{ width: '100%', padding: '15px', borderRadius: '12px', border: '2px solid #0070f3', background: '#fff', color: '#0070f3' }}>New Trip</button>
-            </div>
-          )}
         </div>
       )}
     </div>
